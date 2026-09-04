@@ -6,7 +6,7 @@ funciones migradas se resuelven desde los módulos de agente_qa/.
 IMPORTANTE:
 - Este archivo solo se modifica en organizar-main.
 - app_legacy.py se conserva como respaldo durante la migración.
-- mao-dev no aporta lógica.
+- mao-dev no aporta lógica funcional; solo se respeta su estructura objetivo.
 """
 
 from __future__ import annotations
@@ -22,6 +22,12 @@ from agente_qa.extraction import (
     extract_txt,
     extract_xlsx,
 )
+from agente_qa.generation import (
+    generate_qa_data,
+    load_prompt,
+    validate_qa_structure,
+)
+from agente_qa.providers.gemini import get_valid_models
 from agente_qa.utils import (
     _remove_trailing_pipe,
     _ui_text,
@@ -56,7 +62,8 @@ _MIGRATED_FUNCTIONS = {
     "aggregate_case_alerts", "_normalize_cu", "_extract_related_cu",
     "calculate_cu_coverage", "validate_minimum_cu_coverage", "render_cu_coverage",
     "extract_txt", "extract_pdf", "extract_docx", "extract_xlsx", "extract_csv",
-    "extract_source",
+    "extract_source", "load_prompt", "get_valid_models", "validate_qa_structure",
+    "generate_qa_data",
 }
 
 
