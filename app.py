@@ -28,6 +28,7 @@ from agente_qa.generation import (
     validate_qa_structure,
 )
 from agente_qa.providers.gemini import get_valid_models
+from agente_qa.export.excel import create_excel
 from agente_qa.utils import (
     _remove_trailing_pipe,
     _ui_text,
@@ -63,7 +64,7 @@ _MIGRATED_FUNCTIONS = {
     "calculate_cu_coverage", "validate_minimum_cu_coverage", "render_cu_coverage",
     "extract_txt", "extract_pdf", "extract_docx", "extract_xlsx", "extract_csv",
     "extract_source", "load_prompt", "get_valid_models", "validate_qa_structure",
-    "generate_qa_data",
+    "generate_qa_data", "create_excel",
 }
 
 
