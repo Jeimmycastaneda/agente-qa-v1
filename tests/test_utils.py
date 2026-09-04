@@ -1,0 +1,59 @@
+import re
+
+from agente_qa.utils import (
+    build_azure_description,
+    build_case_title,
+    normalize_case_id,
+    normalize_coverage,
+    normalize_validation_method,
+    safe_text,
+)
+
+
+def test_safe_text_supports_multiple_fallbacks():
+    assert safe_text(None, "", "segundo respaldo") == "segundo respaldo"
+    assert safe_text("", "primer respaldo", "segundo respaldo") == "primer respaldo"
+    assert safe_text("valor", "respaldo", "otro") == "valor"
+
+
+def test_build_azure_description_removes_trailing_pipe_and_preserves_sections():
+    result = build_azure_description(
+        "Cotizadores Web |",
+        "Cotizador Autos Colectivos |",
+        "Validar cotización |",
+        "La cotización queda cotizada |",
+        "Usuario autenticado |",
+        "CU-325 |",
+    )
+
+    assert "Producto: Cotizadores Web" in result
+    assert "Módulo: Cotizador Autos Colectivos" in result
+    assert "Descripción: Validar cotización" in result
+    assert "Resultado esperado de la prueba: La cotización queda cotizada" in result
+    assert "Precondiciones: Usuario autenticado" in result
+    assert "Caso de uso relacionado: CU-325" in result
+    assert not re.search(r"\|\s*$", result)
+
+
+def test_build_case_title_does_not_use_cp_id_as_title():
+    case_id = "CP-AC-CAC-00001"
+    tc = {"Title": case_id, "Scenario": "Consultar cotización en estado Cotizado"}
+
+    assert build_case_title(tc, case_id) == "Consultar cotización en estado Cotizado"
+
+
+def test_normalize_case_id_keeps_valid_id():
+    valid = "CP-AC-CAC-00012"
+    assert normalize_case_id(valid, "Cotizador Autos Colectivos", 99) == valid
+
+
+def test_normalize_case_id_generates_expected_format():
+    generated = normalize_case_id("", "Cotizador Autos Colectivos", 7)
+    assert re.fullmatch(r"CP-AC-[A-Z0-9_-]+-00007", generated)
+
+
+def test_normalize_coverage_and_validation_method():
+    assert normalize_coverage("completa") == "Completa"
+    assert normalize_coverage("no cubierta") == "No cubierta"
+    assert normalize_validation_method("interfaz de usuario") == "UI"
+    assert normalize_validation_method("base de datos") == "BD"
