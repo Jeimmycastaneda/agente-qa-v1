@@ -1,6 +1,6 @@
 """Exportación Excel extraída exclusivamente de main.
 
-Este módulo es una copia de trabajo: app.py original no se modifica todavía.
+Este módulo centraliza la generación del archivo de importación Azure y la Matriz QA.
 """
 
 import io
@@ -15,8 +15,9 @@ from agente_qa.utils import (
     format_description_for_azure,
     build_case_title,
     normalize_case_id,
+    find_coverage,
+    aggregate_case_alerts,
 )
-from agente_qa.validation import find_coverage, aggregate_case_alerts
 from config.qa_config import AZURE_COLUMNS, MATRIZ_COLUMNS, EXCEL_CONFIGS
 
 
