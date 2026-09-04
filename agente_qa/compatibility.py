@@ -1,7 +1,7 @@
 """Compatibility helpers for the gradual migration from app.py.
 
-This module intentionally does not replace or modify the original application.
-It provides a small, stable boundary while organized modules are integrated.
+This module provides a stable boundary between the legacy UI and the organized
+modules. It does not contain business logic and it does not depend on mao-dev.
 """
 
 from importlib import import_module
@@ -22,9 +22,9 @@ def optional_import(module_name: str, attribute: str, default: Any = _MISSING) -
         raise
 
 
-def get_extraction_function(name: str):
-    """Resolve an extraction function from the organized extraction module."""
-    return optional_import("agente_qa.extraction", name)
+def get_utils_function(name: str):
+    """Resolve a utility function from the organized utils module."""
+    return optional_import("agente_qa.utils", name)
 
 
 def get_validation_function(name: str):
@@ -32,10 +32,14 @@ def get_validation_function(name: str):
     return optional_import("agente_qa.validation", name)
 
 
+def get_extraction_function(name: str):
+    """Resolve an extraction function from the organized extraction module."""
+    return optional_import("agente_qa.extraction", name)
+
+
 def get_export_function(kind: str, name: str):
     """Resolve an export function without changing the legacy app entry point."""
-    module_name = f"agente_qa.export.{kind}"
-    return optional_import(module_name, name)
+    return optional_import(f"agente_qa.export.{kind}", name)
 
 
 def get_provider_function(provider: str, name: str):
