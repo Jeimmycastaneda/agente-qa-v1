@@ -1,6 +1,7 @@
-"""Exportación Excel extraída exclusivamente de main.
+"""Exportación Excel del agente QA.
 
-Este módulo centraliza la generación del archivo de importación Azure y la Matriz QA.
+Este módulo centraliza la generación del archivo de importación Azure y la Matriz QA,
+manteniendo la estructura aprobada del proyecto.
 """
 
 import io
@@ -22,7 +23,7 @@ from config.qa_config import AZURE_COLUMNS, MATRIZ_COLUMNS, EXCEL_CONFIGS
 
 
 def create_excel(data, config_key):
-    """Genera Azure Import y Matriz QA con la estructura aprobada en main."""
+    """Genera Azure Import y Matriz QA con la estructura aprobada."""
     config = EXCEL_CONFIGS[config_key]
     output = io.BytesIO()
 
