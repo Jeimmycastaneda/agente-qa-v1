@@ -70,12 +70,48 @@ def _remove_trailing_pipe(value):
     return re.sub(r"\s*\|\s*$", "", text).rstrip()
 
 
+_DESCRIPTION_LABELS = (
+    "Producto",
+    "Módulo",
+    "Descripción",
+    "Resultado esperado de la prueba",
+    "Precondiciones",
+    "Caso de uso relacionado",
+)
+
+
+def _extract_labeled_blocks(value):
+    """Extrae bloques estructurados aunque las etiquetas estén en la misma línea."""
+    text = _remove_trailing_pipe(value)
+    if not text:
+        return {}
+
+    labels_pattern = "|".join(re.escape(label) for label in _DESCRIPTION_LABELS)
+    pattern = rf"(?is)(?:^|\n|\r|\*\*)\s*(?P<label>{labels_pattern})\s*\**\s*:\s*"
+    matches = list(re.finditer(pattern, text))
+    if not matches:
+        return {}
+
+    blocks = {}
+    for index, match in enumerate(matches):
+        label = match.group("label")
+        start = match.end()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        content = text[start:end].strip()
+        content = re.sub(r"\*\*\s*$", "", content).strip()
+        blocks[label] = content
+    return blocks
+
+
 def _extract_description_block(value, label, next_labels):
-    """Extrae el contenido de un bloque etiquetado sin arrastrar otros bloques."""
+    """Extrae el contenido de un bloque etiquetado, incluso si está en línea."""
     text = _remove_trailing_pipe(value)
     if not text:
         return ""
-    pattern = rf"(?is)(?:^|\n|\r)\s*\**{re.escape(label)}\**\s*:?\s*(.*?)(?=\n\s*\**(?:{'|'.join(re.escape(x) for x in next_labels)})\**\s*:|\Z)"
+
+    labels = [label, *next_labels]
+    labels_pattern = "|".join(re.escape(item) for item in labels)
+    pattern = rf"(?is)(?:^|\n|\r|\*\*)\s*{re.escape(label)}\s*\**\s*:\s*(.*?)(?=(?:\n|\r|\*\*)?\s*(?:{labels_pattern})\s*\**\s*:|\Z)"
     match = re.search(pattern, text)
     if match:
         return match.group(1).strip()
@@ -87,46 +123,81 @@ def _clean_description_content(value):
     text = _remove_trailing_pipe(value)
     if not text:
         return ""
-    labels = [
-        "Producto",
-        "Módulo",
-        "Descripción",
-        "Resultado esperado de la prueba",
-        "Precondiciones",
-        "Caso de uso relacionado",
-    ]
-    # Si el texto ya viene estructurado, conservar únicamente el contenido del bloque Descripción.
-    if re.search(r"(?im)^\s*\**Producto\**\s*:", text) or re.search(r"(?im)^\s*\**Módulo\**\s*:", text):
-        extracted = _extract_description_block(text, "Descripción", [x for x in labels if x != "Descripción"])
-        return extracted or text
-    # También elimina un encabezado aislado de Description para evitar "Descripción: Descripción: ...".
-    text = re.sub(r"(?im)^\s*\**Descripción\**\s*:\s*", "", text, count=1).strip()
+
+    blocks = _extract_labeled_blocks(text)
+    if blocks:
+        # Si Gemini ya entregó la estructura completa, Description solo debe conservar
+        # el contenido de su propio bloque. Los demás bloques se toman de sus campos.
+        return blocks.get("Descripción", "").strip() or text
+
+    # También elimina un encabezado aislado de Description para evitar duplicarlo.
+    text = re.sub(r"(?is)^\s*\**Descripción\**\s*:\s*", "", text, count=1).strip()
     return text
 
 
 def build_azure_description(product, module, description, expected, preconditions, related_use_case):
     """Construye una única estructura aprobada de Description para Azure."""
-    product = _remove_trailing_pipe(product)
-    module = _remove_trailing_pipe(module)
-    expected = _remove_trailing_pipe(expected)
-    preconditions = _remove_trailing_pipe(preconditions)
-    related_use_case = _remove_trailing_pipe(related_use_case)
-    desc = _clean_description_content(description)
+    raw_values = {
+        "Producto": _remove_trailing_pipe(product),
+        "Módulo": _remove_trailing_pipe(module),
+        "Descripción": _remove_trailing_pipe(description),
+        "Resultado esperado de la prueba": _remove_trailing_pipe(expected),
+        "Precondiciones": _remove_trailing_pipe(preconditions),
+        "Caso de uso relacionado": _remove_trailing_pipe(related_use_case),
+    }
 
-    # Si algún campo individual viene con su propia etiqueta, extraer solo su contenido.
-    expected = _extract_description_block(expected, "Resultado esperado de la prueba", ["Precondiciones", "Caso de uso relacionado"]) if re.search(r"(?im)Resultado esperado de la prueba", expected) else expected
-    preconditions = _extract_description_block(preconditions, "Precondiciones", ["Caso de uso relacionado"]) if re.search(r"(?im)Precondiciones", preconditions) else preconditions
-    related_use_case = _extract_description_block(related_use_case, "Caso de uso relacionado", []) if re.search(r"(?im)Caso de uso relacionado", related_use_case) else related_use_case
-    product = _extract_description_block(product, "Producto", ["Módulo", "Descripción"]) if re.search(r"(?im)Producto", product) else product
-    module = _extract_description_block(module, "Módulo", ["Descripción", "Resultado esperado de la prueba"]) if re.search(r"(?im)Módulo", module) else module
+    # Si cualquiera de los campos trae la estructura completa generada por Gemini,
+    # descomponerla una sola vez y usar sus bloques como fuente de respaldo.
+    combined_blocks = {}
+    for value in raw_values.values():
+        blocks = _extract_labeled_blocks(value)
+        if blocks:
+            for key, content in blocks.items():
+                if content and not combined_blocks.get(key):
+                    combined_blocks[key] = content
+
+    values = {}
+    for label, value in raw_values.items():
+        if combined_blocks.get(label):
+            # El bloque estructurado tiene prioridad para evitar que el mismo contenido
+            # vuelva a aparecer dentro de otro bloque.
+            values[label] = combined_blocks[label]
+        else:
+            values[label] = value
+
+    # Si Description contiene estructura, tomar únicamente su bloque Descripción.
+    description_blocks = _extract_labeled_blocks(values["Descripción"])
+    if description_blocks:
+        values["Descripción"] = description_blocks.get("Descripción", "").strip()
+
+    # Limpiar etiquetas estructurales residuales de cada campo individual.
+    expected_blocks = _extract_labeled_blocks(values["Resultado esperado de la prueba"])
+    if expected_blocks:
+        values["Resultado esperado de la prueba"] = expected_blocks.get("Resultado esperado de la prueba", "").strip()
+
+    precondition_blocks = _extract_labeled_blocks(values["Precondiciones"])
+    if precondition_blocks:
+        values["Precondiciones"] = precondition_blocks.get("Precondiciones", "").strip()
+
+    related_blocks = _extract_labeled_blocks(values["Caso de uso relacionado"])
+    if related_blocks:
+        values["Caso de uso relacionado"] = related_blocks.get("Caso de uso relacionado", "").strip()
+
+    product_blocks = _extract_labeled_blocks(values["Producto"])
+    if product_blocks:
+        values["Producto"] = product_blocks.get("Producto", "").strip()
+
+    module_blocks = _extract_labeled_blocks(values["Módulo"])
+    if module_blocks:
+        values["Módulo"] = module_blocks.get("Módulo", "").strip()
 
     return (
-        f"Producto: {product or 'Pendiente'}\n\n"
-        f"Módulo: {module or 'Pendiente'}\n\n"
-        f"Descripción: {desc or 'Pendiente'}\n\n"
-        f"Resultado esperado de la prueba: {expected or 'Pendiente'}\n\n"
-        f"Precondiciones: {preconditions or 'Pendiente'}\n\n"
-        f"Caso de uso relacionado: {related_use_case or 'Pendiente'}"
+        f"Producto: {values['Producto'] or 'Pendiente'}\n\n"
+        f"Módulo: {values['Módulo'] or 'Pendiente'}\n\n"
+        f"Descripción: {values['Descripción'] or 'Pendiente'}\n\n"
+        f"Resultado esperado de la prueba: {values['Resultado esperado de la prueba'] or 'Pendiente'}\n\n"
+        f"Precondiciones: {values['Precondiciones'] or 'Pendiente'}\n\n"
+        f"Caso de uso relacionado: {values['Caso de uso relacionado'] or 'Pendiente'}"
     )
 
 
