@@ -98,6 +98,8 @@ Si para que el CP sea autónomo y ejecutable es necesario incorporar el contenid
 - Debe conservar el detalle funcional necesario para que el Test Case sea autosuficiente.
 - Debe presentar en este orden: Producto, Módulo, Descripción, Resultado esperado de la prueba, Precondiciones y Caso de uso relacionado.
 - No inventar datos. Si un dato no está definido, indicarlo como pendiente/por validar.
+- IMPORTANTE: cada bloque estructural debe aparecer UNA SOLA VEZ. La propiedad Description debe contener únicamente el contenido funcional de la descripción, no volver a incluir Producto, Módulo, Resultado esperado, Precondiciones ni Caso de uso relacionado.
+- Si la fuente o una respuesta previa ya trae esos encabezados dentro de Description, separa conceptualmente su contenido y evita repetirlos.
 
 3. PASOS COMPLETOS Y EJECUTABLES
 - Los Steps deben cubrir TODO el flujo necesario.
@@ -113,10 +115,17 @@ Si para que el CP sea autónomo y ejecutable es necesario incorporar el contenid
 5. CALIDAD MÍNIMA DEL CP
 Un CP es insuficiente si su Description, Preconditions, Expected Result o Steps son tan genéricos que no permiten reconocer qué parte específica del CU se valida.
 
-6. OPCIONES POSIBLES DE NAVEGACIÓN SIN INVENTAR RUTAS
-Cuando el CU no indique navegación exacta, puede redactarse una opción posible solo si existe evidencia suficiente en la documentación. No inventar botones, URLs, IDs, pantallas, menús o rutas.
+6. NAVEGACIÓN Y RUTA SUGERIDA
+- La generación DEBE intentar identificar una ruta de navegación útil a partir de la HU, CU, mockups, notas y TODOS los CP de referencia de la Suite seleccionada.
+- Cuando exista evidencia suficiente, incorpora la ruta dentro del contenido del bloque Description y refleja la misma navegación en los Steps.
+- La ruta debe llegar hasta la funcionalidad que se está validando.
+- La ruta puede expresarse de forma descriptiva, por ejemplo: "Ingresar al Cotizador Web -> seleccionar Colectivos Autos -> consultar la cotización -> acceder a la funcionalidad"; sustituye cada elemento por los nombres reales sustentados por la fuente.
+- NO inventes nombres de menú, submenú, botones, iconos, pantallas, URLs u opciones.
+- Si no existe evidencia suficiente para determinar una ruta concreta, NO inventes una. Genera la alerta exacta: "Ruta de navegación no definida en la fuente. Validar con equipo funcional."
+- Los CP de referencia pueden aportar la ruta real cuando la Suite seleccionada contiene esa información; evaluar TODOS los CP de la Suite antes de decidir la ruta.
+- No crear un bloque independiente llamado Ruta, Ruta sugerida, Ruta estimada, Ruta funcional o Navegación. La ruta debe formar parte de Description y de los Steps.
 
-6. EXCEL AZURE
+7. EXCEL AZURE
 - Un CP debe exportarse como un bloque: cabecera + todas sus filas de Steps.
 - Tipo Origen Proyecto = Proyecto.
 - Area Path = COTIZADORES WEB\\DESARROLLO.
@@ -219,7 +228,9 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
         "No conviertas Steps en CP. "
         "Related Use Case debe conservar el ID del CU. "
         "No inventar un CU ni dejarlo como None si existe un título de CU en la fuente. "
-        "Cuando la navegación no esté definida explícitamente, no inventes botones, URLs, menús, pantallas ni rutas.\n"
+        "La navegación debe buscarse en la documentación y en TODOS los CP de referencia de la Suite. "
+        "Si existe evidencia suficiente, incluir la ruta real en Description y Steps; si no existe, generar la alerta exacta de ruta no definida. "
+        "No inventar botones, URLs, menús, pantallas ni rutas.\n"
         "\n\n==================== REGLA DE SALIDA ====================\n"
         "Devuelve exclusivamente JSON válido que cumpla el esquema solicitado. "
         "No agregues explicaciones fuera del JSON."
