@@ -1,8 +1,8 @@
 """Punto de entrada modular de Agente QA.
 
 La funcionalidad e interfaz aprobadas se distribuyen por la estructura objetivo.
-``app_legacy.py`` se conserva como fuente transitoria de funciones que aún no
-han sido migradas; su interfaz no se ejecuta desde este archivo.
+``app_legacy.py`` se conserva temporalmente como respaldo, pero ya no es
+necesario para ejecutar la aplicación.
 
 Reglas:
 - Solo se modifica ``organizar-main``.
@@ -11,11 +11,9 @@ Reglas:
 """
 from __future__ import annotations
 
-import ast
-from pathlib import Path
-
 import streamlit as st
 
+from agente_qa.config import APP_VERSION
 from agente_qa.ui.document import render_document_section
 from agente_qa.ui.generation_section import render_generation_section
 from agente_qa.ui.results import render_results_section
@@ -37,58 +35,19 @@ from agente_qa.validation import (
     _extract_related_cu, _normalize_cu, calculate_cu_coverage,
     render_cu_coverage, validate_minimum_cu_coverage,
 )
+from agente_qa.integrations.azure_runtime import (
+    AzureDevOpsError,
+    create_selected_cases_in_azure,
+    get_test_case_detail,
+    list_test_cases,
+    list_test_plans,
+    list_test_suites,
+    test_connection,
+)
+from config.qa_config import EXCEL_CONFIGS
 
 
-def _load_legacy_functions():
-    """Carga imports, constantes y funciones de app_legacy sin ejecutar su UI."""
-    legacy_path = Path(__file__).with_name("app_legacy.py")
-    source = legacy_path.read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=str(legacy_path))
-
-    # La interfaz histórica comienza en el primer st.set_page_config().
-    # Todo lo anterior contiene dependencias, configuración y funciones que
-    # todavía sirven como puente durante la migración modular.
-    interface_index = None
-    for index, node in enumerate(tree.body):
-        if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Call):
-            continue
-        call = node.value
-        if (
-            isinstance(call.func, ast.Attribute)
-            and isinstance(call.func.value, ast.Name)
-            and call.func.value.id == "st"
-            and call.func.attr == "set_page_config"
-        ):
-            interface_index = index
-            break
-
-    if interface_index is None:
-        raise RuntimeError("No se encontró st.set_page_config() en app_legacy.py")
-
-    tree.body = tree.body[:interface_index]
-    ast.fix_missing_locations(tree)
-    namespace = {
-        "__name__": "agente_qa_legacy_functions",
-        "__file__": str(legacy_path),
-        "__package__": None,
-    }
-    exec(compile(tree, str(legacy_path), "exec"), namespace, namespace)
-    return namespace
-
-
-LEGACY = _load_legacy_functions()
-
-AzureDevOpsError = LEGACY["AzureDevOpsError"]
-test_connection = LEGACY["test_connection"]
-list_test_plans = LEGACY["list_test_plans"]
-list_test_suites = LEGACY["list_test_suites"]
-list_test_cases = LEGACY["list_test_cases"]
-get_test_case_detail = LEGACY["get_test_case_detail"]
-create_selected_cases_in_azure = LEGACY["create_selected_cases_in_azure"]
-
-APP_VERSION = LEGACY["APP_VERSION"]
-FALLBACK_MODELS = LEGACY["FALLBACK_MODELS"]
-EXCEL_CONFIGS = LEGACY["EXCEL_CONFIGS"]
+FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
 st.set_page_config(
     page_title=f"Agente QA {APP_VERSION}",
