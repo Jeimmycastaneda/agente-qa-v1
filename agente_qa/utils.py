@@ -87,7 +87,7 @@ def _extract_labeled_blocks(value):
         return {}
 
     labels_pattern = "|".join(re.escape(label) for label in _DESCRIPTION_LABELS)
-    pattern = rf"(?is)(?:^|\n|\r|\*\*)\s*(?P<label>{labels_pattern})\s*\**\s*:\s*"
+    pattern = rf"(?is)(?:^|\s|\*\*)\s*(?P<label>{labels_pattern})\s*\**\s*:\s*"
     matches = list(re.finditer(pattern, text))
     if not matches:
         return {}
@@ -111,7 +111,7 @@ def _extract_description_block(value, label, next_labels):
 
     labels = [label, *next_labels]
     labels_pattern = "|".join(re.escape(item) for item in labels)
-    pattern = rf"(?is)(?:^|\n|\r|\*\*)\s*{re.escape(label)}\s*\**\s*:\s*(.*?)(?=(?:\n|\r|\*\*)?\s*(?:{labels_pattern})\s*\**\s*:|\Z)"
+    pattern = rf"(?is)(?:^|\s|\*\*)\s*{re.escape(label)}\s*\**\s*:\s*(.*?)(?=(?:\s|\*\*)\s*(?:{labels_pattern})\s*\**\s*:|\Z)"
     match = re.search(pattern, text)
     if match:
         return match.group(1).strip()
@@ -146,50 +146,24 @@ def build_azure_description(product, module, description, expected, precondition
         "Caso de uso relacionado": _remove_trailing_pipe(related_use_case),
     }
 
-    # Si cualquiera de los campos trae la estructura completa generada por Gemini,
-    # descomponerla una sola vez y usar sus bloques como fuente de respaldo.
+    # Gemini puede devolver la estructura completa dentro de Description. Se descompone
+    # una sola vez y se evita que sus bloques vuelvan a imprimirse dentro de Description.
     combined_blocks = {}
     for value in raw_values.values():
         blocks = _extract_labeled_blocks(value)
-        if blocks:
-            for key, content in blocks.items():
-                if content and not combined_blocks.get(key):
-                    combined_blocks[key] = content
+        for key, content in blocks.items():
+            if content and not combined_blocks.get(key):
+                combined_blocks[key] = content
 
     values = {}
     for label, value in raw_values.items():
-        if combined_blocks.get(label):
-            # El bloque estructurado tiene prioridad para evitar que el mismo contenido
-            # vuelva a aparecer dentro de otro bloque.
-            values[label] = combined_blocks[label]
-        else:
-            values[label] = value
+        values[label] = combined_blocks.get(label, value)
 
-    # Si Description contiene estructura, tomar únicamente su bloque Descripción.
-    description_blocks = _extract_labeled_blocks(values["Descripción"])
-    if description_blocks:
-        values["Descripción"] = description_blocks.get("Descripción", "").strip()
-
-    # Limpiar etiquetas estructurales residuales de cada campo individual.
-    expected_blocks = _extract_labeled_blocks(values["Resultado esperado de la prueba"])
-    if expected_blocks:
-        values["Resultado esperado de la prueba"] = expected_blocks.get("Resultado esperado de la prueba", "").strip()
-
-    precondition_blocks = _extract_labeled_blocks(values["Precondiciones"])
-    if precondition_blocks:
-        values["Precondiciones"] = precondition_blocks.get("Precondiciones", "").strip()
-
-    related_blocks = _extract_labeled_blocks(values["Caso de uso relacionado"])
-    if related_blocks:
-        values["Caso de uso relacionado"] = related_blocks.get("Caso de uso relacionado", "").strip()
-
-    product_blocks = _extract_labeled_blocks(values["Producto"])
-    if product_blocks:
-        values["Producto"] = product_blocks.get("Producto", "").strip()
-
-    module_blocks = _extract_labeled_blocks(values["Módulo"])
-    if module_blocks:
-        values["Módulo"] = module_blocks.get("Módulo", "").strip()
+    # Segunda barrera: ningún bloque estructural debe quedar incrustado dentro de otro.
+    for label in _DESCRIPTION_LABELS:
+        blocks = _extract_labeled_blocks(values[label])
+        if blocks and label in blocks:
+            values[label] = blocks[label].strip()
 
     return (
         f"Producto: {values['Producto'] or 'Pendiente'}\n\n"
