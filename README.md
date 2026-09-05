@@ -6,25 +6,7 @@ Agente especializado en analizar Historias de Usuario (HU), Casos de Uso, Criter
 
 ## 🎯 Objetivo
 
-El Agente QA busca convertir documentación funcional en casos de prueba estructurados, revisables y preparados para su gestión en Azure DevOps, evitando inventar información que no esté sustentada por la fuente.
-
-El flujo actual mantiene:
-
-```text
-Documento funcional
-       ↓
-    Streamlit
-       ↓
-      Gemini
-       ↓
-Análisis QA + reglas
-       ↓
- Casos de Prueba
-   ↙      ↓       ↘
-Editor   Excel     PDF
-             ↓
-       Azure DevOps
-```
+El Agente QA convierte documentación funcional en casos de prueba estructurados, revisables y preparados para su gestión en Azure DevOps, evitando inventar información que no esté sustentada por la fuente.
 
 ## 🧠 Componentes principales
 
@@ -51,7 +33,7 @@ La lógica funcional debe garantizar, entre otras reglas:
 
 ## 🧪 Estructura de un Caso de Prueba
 
-Los CP utilizan la estructura funcional definida para el proyecto, incluyendo información como:
+Los CP utilizan la estructura funcional definida para el proyecto, incluyendo:
 
 - ID del CP;
 - Producto;
@@ -74,13 +56,11 @@ CP-AC-<MÓDULO>-#####
 La aplicación contempla generación de:
 
 - **Excel** compatible con el flujo de importación de Azure DevOps y con la **Matriz QA** aprobada.
-- **PDF** para revisión/consulta de los casos generados.
+- **PDF** para revisión y consulta de los casos generados.
 
 Se debe conservar el modelo aprobado de columnas y títulos; cualquier cambio estructural debe validarse antes de incorporarse.
 
 ## ☁️ Azure DevOps
-
-El proyecto está evolucionando para permitir la creación y sincronización de Test Cases en Azure DevOps.
 
 La integración contempla trabajar con:
 
@@ -96,51 +76,67 @@ La integración debe permanecer protegida y **deshabilitada por defecto** hasta 
 
 ## 📁 Estructura actual del repositorio
 
-La rama `main` contiene actualmente una aplicación Streamlit que concentra buena parte de la lógica en `app.py`, además de módulos específicos para edición y Azure DevOps:
+La rama `organizar-main` contiene la aplicación reorganizada por responsabilidades, conservando la funcionalidad e interfaz aprobadas de `main` y utilizando `mao-dev-branch` únicamente como referencia estructural.
 
 ```text
 Agente-QA-V1/
 │
-├── app.py                 # Punto de entrada y lógica principal actual
-├── editor_azure.py        # Editor de CP con estructura tipo Azure
-├── azure_devops.py        # Integración/conector Azure DevOps
-├── prompt_qa.txt          # Prompt QA / reglas del agente
-├── azure_config.txt       # Configuración relacionada con Azure
-├── azure_template_headers.txt
-├── requirements.txt       # Dependencias Python
+├── app.py
+├── agente_qa/
+│   ├── config.py
+│   ├── defaults.py
+│   ├── errors.py
+│   ├── extraction.py
+│   ├── generation.py
+│   ├── prompts.py
+│   ├── secrets.py
+│   ├── security.py
+│   ├── settings.py
+│   ├── utils.py
+│   ├── validation.py
+│   ├── providers/
+│   │   ├── base.py
+│   │   └── gemini.py
+│   ├── export/
+│   │   ├── excel.py
+│   │   └── pdf.py
+│   ├── integrations/
+│   │   ├── azure_devops.py
+│   │   └── azure_runtime.py
+│   └── ui/
+│       ├── azure_section.py
+│       ├── coverage.py
+│       ├── document.py
+│       ├── editor.py
+│       ├── generation.py
+│       ├── generation_section.py
+│       ├── prompt_editor.py
+│       ├── results.py
+│       ├── sidebar.py
+│       ├── state.py
+│       └── upload.py
+├── config/
+├── docs/
+├── prompts/
+├── tests/
+├── prompt_qa.txt
+├── requirements.txt
 └── README.md
 ```
 
-La arquitectura futura se está reorganizando en una rama aislada para separar responsabilidades sin comprometer `main`.
+Los antiguos módulos duplicados de Azure y editor que existían en la raíz fueron eliminados. La implementación canónica se encuentra ahora en `agente_qa/integrations/` y `agente_qa/ui/`.
 
-## 🏗️ Arquitectura objetivo
+## 🏗️ Arquitectura y ramas
 
-La evolución propuesta separa la aplicación en capas:
+La estrategia de trabajo es:
 
-```text
-app.py
-  │
-  ├── agente_qa/ui/             → Streamlit / interfaz
-  ├── agente_qa/core/           → reglas, validación y cobertura QA
-  ├── agente_qa/providers/      → Gemini
-  ├── agente_qa/extraction/     → PDF/DOCX/TXT/XLSX/CSV
-  ├── agente_qa/export/         → Excel/PDF
-  └── agente_qa/integrations/   → Azure DevOps
+| Rama | Propósito |
+|---|---|
+| `main` | Fuente funcional y visual aprobada |
+| `mao-dev-branch` | Referencia exclusiva para arquitectura/estructura |
+| `organizar-main` | Única rama donde se realiza la reorganización y los cambios de esta migración |
 
-config/                         → configuración
-prompts/                        → prompts
-tests/                          → pruebas automatizadas
-docs/                           → documentación
-.streamlit/                     → configuración Streamlit
-```
-
-Esta reorganización se está realizando en:
-
-```text
-arquitectura-main-v2
-```
-
-sin modificar `main` ni `mao-dev-branch` hasta completar las pruebas y obtener aprobación.
+**Regla:** `main` y `mao-dev-branch` no se modifican durante esta reorganización.
 
 ## 🚀 Instalación local
 
@@ -195,28 +191,15 @@ El conector Azure debe permanecer deshabilitado hasta que exista configuración 
 9. **Proteger las ramas estables.**
 10. **Probar la nueva arquitectura antes de hacer merge.**
 
-## 🌿 Ramas de trabajo
-
-| Rama | Propósito |
-|---|---|
-| `main` | Rama principal / versión estable actual |
-| `mao-dev-branch` | Rama de referencia/desarrollo existente |
-| `arquitectura-main-v2` | Reorganización experimental de la arquitectura de `main` |
-
-**Regla:** `main` y `mao-dev-branch` no deben modificarse como parte del trabajo experimental de arquitectura.
-
 ## 📚 Próximos pasos
 
-- Completar la migración 1:1 del `app.py` monolítico hacia módulos.
-- Mantener las reglas actuales del prompt QA.
 - Validar generación y cobertura de CP.
 - Validar Excel y Matriz QA.
 - Validar PDF.
 - Validar editor.
-- Validar conexión con Azure DevOps.
+- Validar conexión con Azure DevOps cuando corresponda.
 - Validar Parent/Suite y Related Work/CU.
-- Ejecutar pruebas de regresión.
-- Revisar la arquitectura antes de cualquier merge a `main`.
+- Ejecutar pruebas de regresión antes de cualquier merge a `main`.
 
 ---
 
