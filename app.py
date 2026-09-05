@@ -1,8 +1,6 @@
 """Punto de entrada modular de Agente QA.
 
 La funcionalidad e interfaz aprobadas se distribuyen por la estructura objetivo.
-``app_legacy.py`` se conserva temporalmente como respaldo, pero ya no es
-necesario para ejecutar la aplicación.
 
 Reglas:
 - Solo se modifica ``organizar-main``.
@@ -24,17 +22,8 @@ from agente_qa.ui.editor import render_azure_style_editor, delete_test_case
 from agente_qa.export.excel import create_excel
 from agente_qa.export.pdf import create_pdf
 from agente_qa.extraction import extract_source
-from agente_qa.generation import generate_qa_data, load_prompt, validate_qa_structure
-from agente_qa.providers.gemini import get_valid_models
-from agente_qa.utils import (
-    _remove_trailing_pipe, _ui_text, aggregate_case_alerts, build_azure_description,
-    build_case_title, find_coverage, format_description_for_azure, module_token,
-    normalize_case_id, normalize_coverage, normalize_validation_method, safe_steps, safe_text,
-)
-from agente_qa.validation import (
-    _extract_related_cu, _normalize_cu, calculate_cu_coverage,
-    render_cu_coverage, validate_minimum_cu_coverage,
-)
+from agente_qa.generation import generate_qa_data, load_prompt
+from agente_qa.validation import calculate_cu_coverage, render_cu_coverage
 from agente_qa.integrations.azure_runtime import (
     AzureDevOpsError,
     create_selected_cases_in_azure,
