@@ -70,16 +70,56 @@ def _remove_trailing_pipe(value):
     return re.sub(r"\s*\|\s*$", "", text).rstrip()
 
 
+def _extract_description_block(value, label, next_labels):
+    """Extrae el contenido de un bloque etiquetado sin arrastrar otros bloques."""
+    text = _remove_trailing_pipe(value)
+    if not text:
+        return ""
+    pattern = rf"(?is)(?:^|\n|\r)\s*\**{re.escape(label)}\**\s*:?\s*(.*?)(?=\n\s*\**(?:{'|'.join(re.escape(x) for x in next_labels)})\**\s*:|\Z)"
+    match = re.search(pattern, text)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
+def _clean_description_content(value):
+    """Evita que Description contenga nuevamente los seis bloques estructurales."""
+    text = _remove_trailing_pipe(value)
+    if not text:
+        return ""
+    labels = [
+        "Producto",
+        "Módulo",
+        "Descripción",
+        "Resultado esperado de la prueba",
+        "Precondiciones",
+        "Caso de uso relacionado",
+    ]
+    # Si el texto ya viene estructurado, conservar únicamente el contenido del bloque Descripción.
+    if re.search(r"(?im)^\s*\**Producto\**\s*:", text) or re.search(r"(?im)^\s*\**Módulo\**\s*:", text):
+        extracted = _extract_description_block(text, "Descripción", [x for x in labels if x != "Descripción"])
+        return extracted or text
+    # También elimina un encabezado aislado de Description para evitar "Descripción: Descripción: ...".
+    text = re.sub(r"(?im)^\s*\**Descripción\**\s*:\s*", "", text, count=1).strip()
+    return text
+
+
 def build_azure_description(product, module, description, expected, preconditions, related_use_case):
-    """Construye la estructura aprobada de Description para Azure sin inventar datos."""
+    """Construye una única estructura aprobada de Description para Azure."""
     product = _remove_trailing_pipe(product)
     module = _remove_trailing_pipe(module)
-    desc = _remove_trailing_pipe(description)
     expected = _remove_trailing_pipe(expected)
     preconditions = _remove_trailing_pipe(preconditions)
     related_use_case = _remove_trailing_pipe(related_use_case)
+    desc = _clean_description_content(description)
 
-    desc = re.sub(r"(?mi)^\s*Descripción:\s*", "", desc, count=1).strip()
+    # Si algún campo individual viene con su propia etiqueta, extraer solo su contenido.
+    expected = _extract_description_block(expected, "Resultado esperado de la prueba", ["Precondiciones", "Caso de uso relacionado"]) if re.search(r"(?im)Resultado esperado de la prueba", expected) else expected
+    preconditions = _extract_description_block(preconditions, "Precondiciones", ["Caso de uso relacionado"]) if re.search(r"(?im)Precondiciones", preconditions) else preconditions
+    related_use_case = _extract_description_block(related_use_case, "Caso de uso relacionado", []) if re.search(r"(?im)Caso de uso relacionado", related_use_case) else related_use_case
+    product = _extract_description_block(product, "Producto", ["Módulo", "Descripción"]) if re.search(r"(?im)Producto", product) else product
+    module = _extract_description_block(module, "Módulo", ["Descripción", "Resultado esperado de la prueba"]) if re.search(r"(?im)Módulo", module) else module
+
     return (
         f"Producto: {product or 'Pendiente'}\n\n"
         f"Módulo: {module or 'Pendiente'}\n\n"
