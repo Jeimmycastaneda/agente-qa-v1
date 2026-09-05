@@ -1,13 +1,13 @@
 """Punto de entrada modular de Agente QA.
 
-La funcionalidad e interfaz se toman de la versión aprobada y se distribuyen
-por la estructura objetivo. ``app_legacy.py`` se usa únicamente como fuente
-transitoria de funciones que aún no han sido migradas; no renderiza su UI.
+La funcionalidad e interfaz aprobadas se distribuyen por la estructura objetivo.
+``app_legacy.py`` se conserva como fuente transitoria de funciones que aún no
+han sido migradas; su interfaz no se ejecuta desde este archivo.
 
 Reglas:
 - Solo se modifica ``organizar-main``.
-- ``main`` es fuente funcional/visual; nunca se modifica.
-- ``mao-dev-branch`` es referencia estructural; nunca se modifica.
+- ``main`` es fuente funcional/visual y nunca se modifica.
+- ``mao-dev-branch`` es referencia estructural y nunca se modifica.
 """
 from __future__ import annotations
 
@@ -40,22 +40,32 @@ from agente_qa.validation import (
 
 
 def _load_legacy_functions():
-    """Carga solo funciones/configuración previas, nunca la interfaz legacy."""
+    """Carga imports, constantes y funciones de app_legacy sin ejecutar su UI."""
     legacy_path = Path(__file__).with_name("app_legacy.py")
     source = legacy_path.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(legacy_path))
-    lines = source.splitlines()
-    interface_line = next(
-        (idx + 1 for idx, line in enumerate(lines) if line.strip() == "# INTERFAZ"),
-        None,
-    )
-    if interface_line is None:
-        raise RuntimeError("No se encontró el marcador # INTERFAZ en app_legacy.py")
 
-    # Mantiene imports, constantes y funciones que constituyen la funcionalidad
-    # aprobada. Todo lo que renderiza la UI queda fuera de este exec.
-    body = [node for node in tree.body if node.end_lineno < interface_line]
-    tree.body = body
+    # La interfaz histórica comienza en el primer st.set_page_config().
+    # Todo lo anterior contiene dependencias, configuración y funciones que
+    # todavía sirven como puente durante la migración modular.
+    interface_index = None
+    for index, node in enumerate(tree.body):
+        if not isinstance(node, ast.Expr) or not isinstance(node.value, ast.Call):
+            continue
+        call = node.value
+        if (
+            isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "st"
+            and call.func.attr == "set_page_config"
+        ):
+            interface_index = index
+            break
+
+    if interface_index is None:
+        raise RuntimeError("No se encontró st.set_page_config() en app_legacy.py")
+
+    tree.body = tree.body[:interface_index]
     ast.fix_missing_locations(tree)
     namespace = {
         "__name__": "agente_qa_legacy_functions",
@@ -68,7 +78,6 @@ def _load_legacy_functions():
 
 LEGACY = _load_legacy_functions()
 
-# La UI modular usa estas operaciones sin duplicar la lógica funcional histórica.
 AzureDevOpsError = LEGACY["AzureDevOpsError"]
 test_connection = LEGACY["test_connection"]
 list_test_plans = LEGACY["list_test_plans"]
@@ -80,7 +89,6 @@ create_selected_cases_in_azure = LEGACY["create_selected_cases_in_azure"]
 APP_VERSION = LEGACY["APP_VERSION"]
 FALLBACK_MODELS = LEGACY["FALLBACK_MODELS"]
 EXCEL_CONFIGS = LEGACY["EXCEL_CONFIGS"]
-
 
 st.set_page_config(
     page_title=f"Agente QA {APP_VERSION}",
