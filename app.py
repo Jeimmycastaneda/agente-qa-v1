@@ -102,22 +102,26 @@ st.caption(
     "VERSION PREVIA — DRAFT | PDF / DOCX / TXT / MD → análisis QA → Excel + PDF"
 )
 
-sidebar_config = render_azure_sidebar(
-    fallback_models=FALLBACK_MODELS,
-    excel_configs=EXCEL_CONFIGS,
-    test_connection=test_connection,
-    azure_error_type=AzureDevOpsError,
-    list_test_plans=list_test_plans,
-    list_test_suites=list_test_suites,
-    list_test_cases=list_test_cases,
-    get_test_case_detail=get_test_case_detail,
-    delete_test_case=delete_test_case,
-    calculate_cu_coverage=calculate_cu_coverage,
-    create_excel=create_excel,
-    create_pdf=create_pdf,
-    result=st.session_state.get("result_json"),
-    source_name=st.session_state.get("source_name", ""),
-)
+# IMPORTANTE: en main toda esta sección vive dentro de st.sidebar.
+# El módulo conserva el contenido aprobado, pero app.py debe mantener su
+# ubicación visual en la barra lateral.
+with st.sidebar:
+    sidebar_config = render_azure_sidebar(
+        fallback_models=FALLBACK_MODELS,
+        excel_configs=EXCEL_CONFIGS,
+        test_connection=test_connection,
+        azure_error_type=AzureDevOpsError,
+        list_test_plans=list_test_plans,
+        list_test_suites=list_test_suites,
+        list_test_cases=list_test_cases,
+        get_test_case_detail=get_test_case_detail,
+        delete_test_case=delete_test_case,
+        calculate_cu_coverage=calculate_cu_coverage,
+        create_excel=create_excel,
+        create_pdf=create_pdf,
+        result=st.session_state.get("result_json"),
+        source_name=st.session_state.get("source_name", ""),
+    )
 
 source_text = render_document_section(extract_source)
 
