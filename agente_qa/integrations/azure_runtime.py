@@ -43,67 +43,87 @@ def _az_validate(cfg):
         raise AzureDevOpsError("Faltan secretos de Azure DevOps: " + ", ".join(missing))
 
 
-def _az_get_json(url, pat):
+def _az_auth_header(pat):
+    """Construye el encabezado Basic de Azure DevOps en un único punto."""
     token = base64.b64encode(f":{pat}".encode("utf-8")).decode("ascii")
-    req = Request(url, method="GET", headers={
-        "Authorization": f"Basic {token}",
-        "Accept": "application/json",
-        "User-Agent": "Agente-QA-Streamlit/1.0",
-    })
+    return f"Basic {token}"
+
+
+def _az_send(req, timeout, detail_limit, unauthorized_message, not_found_message=None):
+    """Ejecuta la petición HTTP y centraliza el tratamiento de errores."""
     try:
-        with urlopen(req, timeout=20) as response:
-            return json.loads(response.read().decode("utf-8")), response.headers
+        with urlopen(req, timeout=timeout) as response:
+            raw = response.read().decode("utf-8", errors="replace")
+            return (json.loads(raw) if raw else {}), response.headers
     except HTTPError as exc:
         detail = ""
         try:
-            detail = exc.read().decode("utf-8", errors="replace")[:1000]
+            detail = exc.read().decode("utf-8", errors="replace")[:detail_limit]
         except Exception:
             pass
         if exc.code in (401, 403):
-            raise AzureDevOpsError(
-                f"Azure rechazó la autenticación/autorización (HTTP {exc.code}). "
-                "Verifica el PAT, su vigencia y sus scopes."
-            ) from exc
-        if exc.code == 404:
-            raise AzureDevOpsError(
-                "No se encontró el proyecto o el recurso de Test Plans. "
-                "Verifica AZURE_DEVOPS_ORG y AZURE_DEVOPS_PROJECT."
-            ) from exc
+            raise AzureDevOpsError(unauthorized_message.format(code=exc.code)) from exc
+        if exc.code == 404 and not_found_message:
+            raise AzureDevOpsError(not_found_message) from exc
         raise AzureDevOpsError(f"Azure respondió HTTP {exc.code}. {detail}") from exc
     except URLError as exc:
-        raise AzureDevOpsError(f"No fue posible comunicarse con Azure DevOps: {exc.reason}") from exc
+        raise AzureDevOpsError(
+            f"No fue posible comunicarse con Azure DevOps: {exc.reason}"
+        ) from exc
+
+
+def _az_get_json(url, pat):
+    req = Request(
+        url,
+        method="GET",
+        headers={
+            "Authorization": _az_auth_header(pat),
+            "Accept": "application/json",
+            "User-Agent": "Agente-QA-Streamlit/1.0",
+        },
+    )
+    return _az_send(
+        req,
+        timeout=20,
+        detail_limit=1000,
+        unauthorized_message=(
+            "Azure rechazó la autenticación/autorización (HTTP {code}). "
+            "Verifica el PAT, su vigencia y sus scopes."
+        ),
+        not_found_message=(
+            "No se encontró el proyecto o el recurso de Test Plans. "
+            "Verifica AZURE_DEVOPS_ORG y AZURE_DEVOPS_PROJECT."
+        ),
+    )
 
 
 def _az_request_json(url, pat, method="POST", payload=None, content_type="application/json"):
-    token = base64.b64encode(f":{pat}".encode("utf-8")).decode("ascii")
+    """Solicitud Azure con escritura explícita; solo se invoca desde la confirmación de carga."""
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8") if payload is not None else None
-    req = Request(url, method=method, data=body, headers={
-        "Authorization": f"Basic {token}",
-        "Accept": "application/json",
-        "Content-Type": content_type,
-        "User-Agent": "Agente-QA-Streamlit/1.0",
-    })
-    try:
-        with urlopen(req, timeout=30) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-            return json.loads(raw) if raw else {}, response.headers
-    except HTTPError as exc:
-        detail = ""
-        try:
-            detail = exc.read().decode("utf-8", errors="replace")[:1800]
-        except Exception:
-            pass
-        if exc.code in (401, 403):
-            raise AzureDevOpsError(
-                f"Azure rechazó la operación de escritura (HTTP {exc.code}). "
-                "Verifica que el PAT tenga permisos de Work Items/Test Plans y esté vigente."
-            ) from exc
-        raise AzureDevOpsError(f"Azure respondió HTTP {exc.code}. {detail}") from exc
-    except URLError as exc:
-        raise AzureDevOpsError(f"No fue posible comunicarse con Azure DevOps: {exc.reason}") from exc
+    req = Request(
+        url,
+        method=method,
+        data=body,
+        headers={
+            "Authorization": _az_auth_header(pat),
+            "Accept": "application/json",
+            "Content-Type": content_type,
+            "User-Agent": "Agente-QA-Streamlit/1.0",
+        },
+    )
+    return _az_send(
+        req,
+        timeout=30,
+        detail_limit=1800,
+        unauthorized_message=(
+            "Azure rechazó la operación de escritura (HTTP {code}). "
+            "Verifica que el PAT tenga permisos de Work Items/Test Plans y esté vigente."
+        ),
+    )
 
 
 def _azure_steps_xml(steps):
+    """Construye Microsoft.VSTS.TCM.Steps con Action + Expected."""
     nodes = []
     for idx, step in enumerate(steps or [], start=1):
         if not isinstance(step, dict):
@@ -126,6 +146,7 @@ def _azure_steps_xml(steps):
 
 
 def _azure_description_html(description):
+    """Convierte la Description del CP a HTML real para Azure DevOps."""
     text = safe_text(description)
     if not text:
         return ""
@@ -172,6 +193,7 @@ def _azure_description_html(description):
 
 
 def _get_id_padre(tc):
+    """Obtiene el ID padre explícito. Nunca usa el Test Plan como sustituto."""
     for key in ("IDPadre", "ID Padre", "Parent ID", "ParentId", "parent_id", "id_padre"):
         value = safe_text(tc.get(key))
         if value:
@@ -180,6 +202,7 @@ def _get_id_padre(tc):
 
 
 def _tipo_origen_proyecto(tc):
+    """Valor requerido por el campo Custom.TipoOrigenProyecto."""
     return safe_text(
         tc.get("Tipo Origen Proyecto"), tc.get("TipoOrigenProyecto"),
         st.session_state.get("azure_tipo_origen_proyecto"), "Proyecto",
@@ -187,26 +210,37 @@ def _tipo_origen_proyecto(tc):
 
 
 def create_azure_test_case_work_item(tc, target_plan):
+    """Crea un Work Item de tipo Test Case. Solo se llama al confirmar."""
     cfg = _az_config()
     _az_validate(cfg)
     case_id = safe_text(tc.get("ID"), "CP-PREVIEW")
     title = build_case_title(tc, case_id)
-    description = safe_text(tc.get("Description"))
-    if not description:
-        description = build_azure_description(
-            safe_text(tc.get("Product"), "Cotizadores Web"),
-            safe_text(tc.get("Module"), "Cotizador Autos Colectivos"),
-            safe_text(tc.get("Scenario"), title),
-            safe_text(tc.get("Expected Result"), "Pendiente"),
-            safe_text(tc.get("Preconditions"), "Pendiente"),
-            safe_text(tc.get("Related Use Case"), "Pendiente"),
-        )
+
+    # Siempre arma el bloque completo solicitado por el modelo: no descartar
+    # Producto, Módulo, Resultado esperado, Precondiciones ni CU relacionado.
+    description = build_azure_description(
+        safe_text(tc.get("Product"), "Cotizadores Web"),
+        safe_text(tc.get("Module"), "Cotizador Autos Colectivos"),
+        safe_text(tc.get("Description"), tc.get("Scenario"), title),
+        safe_text(tc.get("Expected Result"), "Pendiente"),
+        safe_text(tc.get("Preconditions"), "Pendiente"),
+        safe_text(tc.get("Related Use Case"), "Pendiente"),
+    )
+
     id_padre = _get_id_padre(tc)
     tipo_origen = _tipo_origen_proyecto(tc)
     if not id_padre:
-        raise AzureDevOpsError("No se puede crear el CP: Azure exige el campo Custom.IDPadre. Informa el ID del Work Item padre (HU/elemento funcional) antes de confirmar. No se usará automáticamente el Test Plan ni la Suite como IDPadre.")
+        raise AzureDevOpsError(
+            "No se puede crear el CP: Azure exige el campo Custom.IDPadre. "
+            "Informa el ID del Work Item padre (HU/elemento funcional) antes de confirmar. "
+            "No se usará automáticamente el Test Plan ni la Suite como IDPadre."
+        )
     if not tipo_origen:
-        raise AzureDevOpsError("No se puede crear el CP: Azure exige Custom.TipoOrigenProyecto. El valor esperado para esta configuración es 'Proyecto'.")
+        raise AzureDevOpsError(
+            "No se puede crear el CP: Azure exige Custom.TipoOrigenProyecto. "
+            "El valor esperado para esta configuración es 'Proyecto'."
+        )
+
     id_padre_value = int(id_padre) if id_padre.isdigit() else id_padre
     patch = [
         {"op": "add", "path": "/fields/System.Title", "value": title},
@@ -238,7 +272,11 @@ def add_test_cases_to_suite(plan_id, suite_id, work_item_ids):
     if not work_item_ids:
         return []
     path = f"Plans/{quote(str(plan_id), safe='')}/Suites/{quote(str(suite_id), safe='')}/TestCase"
-    payload, _ = _az_request_json(_az_testplan_url(cfg, path) + "?api-version=7.1", cfg["pat"], method="POST", payload=[{"workItem": {"id": int(wid)}} for wid in work_item_ids])
+    payload, _ = _az_request_json(
+        _az_testplan_url(cfg, path) + "?api-version=7.1",
+        cfg["pat"], method="POST",
+        payload=[{"workItem": {"id": int(wid)}} for wid in work_item_ids],
+    )
     return payload.get("value", payload if isinstance(payload, list) else [])
 
 
