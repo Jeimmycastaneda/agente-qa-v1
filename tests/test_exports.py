@@ -49,6 +49,32 @@ def test_excel_preserves_approved_columns_and_required_defaults():
     assert rows[2][6] == "Se muestran los datos"
 
 
+def test_excel_uses_selected_suite_name_for_case_id():
+    data = sample_data()
+    data["SUITE_NAME"] = "DRC"
+
+    content = create_excel(data, "Autos Colectivos")
+    workbook = load_workbook(io.BytesIO(content), data_only=True)
+    rows = list(workbook["Azure Import"].iter_rows(min_row=2, values_only=True))
+
+    assert rows[0][3].startswith("CP-AUDRC-00001 ")
+    assert rows[0][3] == "CP-AUDRC-00001 Consultar cotización en estado Cotizado"
+    assert rows[0][3].count("|") == 0
+
+
+def test_excel_uses_ho_when_suite_data_identifies_hogar():
+    data = sample_data()
+    data["SUITE_NAME"] = "DRC"
+    data["TEST_CASES"][0]["Module"] = "Hogar"
+    data["TEST_CASES"][0]["Title"] = "Validar cobertura de vivienda"
+
+    content = create_excel(data, "Autos Colectivos")
+    workbook = load_workbook(io.BytesIO(content), data_only=True)
+    rows = list(workbook["Azure Import"].iter_rows(min_row=2, values_only=True))
+
+    assert rows[0][3] == "CP-HODRC-00001 Validar cobertura de vivienda"
+
+
 def test_pdf_export_generates_readable_pdf_bytes():
     content = create_pdf(sample_data(), "Autos Colectivos", "HU-TEST")
     assert content.startswith(b"%PDF-")
