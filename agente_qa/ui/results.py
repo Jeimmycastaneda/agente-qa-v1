@@ -10,8 +10,7 @@ from agente_qa.utils import build_case_title, normalize_case_id, safe_steps, saf
 
 
 def render_results_section(result, selected_config, excel_configs, calculate_cu_coverage,
-                           render_cu_coverage, render_editor, delete_test_case,
-                           create_excel, create_pdf, coverage_gate_or_stop):
+                           render_cu_coverage, render_editor, create_excel, create_pdf, coverage_gate_or_stop):
     if not result:
         return
 
