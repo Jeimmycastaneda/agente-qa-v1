@@ -196,7 +196,7 @@ def create_pdf(data, config_key=None, source_name=""):
             for step in steps:
                 num = safe_text(step.get("Step #"), "")
                 action = safe_text(step.get("Action"))
-                expected = safe_text(step.get("Expected value"))
+                expected = safe_text(step.get("Expected value"), step.get("Expected"), step.get("expected"))
                 story.append(Paragraph(f"{pdf_text(num)}. {pdf_text(action)}", body))
                 if expected:
                     story.append(Paragraph(f"Resultado esperado: {pdf_text(expected)}", body))
