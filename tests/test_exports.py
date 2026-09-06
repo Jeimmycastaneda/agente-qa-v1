@@ -2,6 +2,7 @@ import io
 import xml.etree.ElementTree as ET
 
 from openpyxl import load_workbook
+from pypdf import PdfReader
 
 from agente_qa.export.excel import create_excel
 from agente_qa.export.pdf import create_pdf
@@ -61,8 +62,9 @@ def test_pdf_preserves_expected_when_step_uses_either_key():
         {"Step #": 2, "Action": "Paso con Expected value", "Expected value": "Resultado B"},
     ]
     content = create_pdf(data, "Autos Colectivos", "HU-TEST")
-    assert b"Resultado A" in content
-    assert b"Resultado B" in content
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(content)).pages)
+    assert "Resultado A" in text
+    assert "Resultado B" in text
 
 
 def test_runtime_steps_xml_uses_action_and_expected_fields():
