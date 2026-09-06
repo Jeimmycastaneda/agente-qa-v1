@@ -10,7 +10,6 @@ from __future__ import annotations
 import base64
 import html
 import json
-import os
 import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -18,6 +17,7 @@ from urllib.request import Request, urlopen
 
 import streamlit as st
 
+from agente_qa.secrets import resolve_secret
 from agente_qa.utils import build_azure_description, build_case_title, safe_steps, safe_text, _ui_text
 
 
@@ -26,14 +26,11 @@ class AzureDevOpsError(RuntimeError):
 
 
 def _az_config():
-    try:
-        secrets = st.secrets
-    except Exception:
-        secrets = {}
+    """Resuelve la configuración Azure desde el proveedor central de secretos."""
     return {
-        "org": str(secrets.get("AZURE_DEVOPS_ORG", os.getenv("AZURE_DEVOPS_ORG", ""))).strip(),
-        "project": str(secrets.get("AZURE_DEVOPS_PROJECT", os.getenv("AZURE_DEVOPS_PROJECT", ""))).strip(),
-        "pat": str(secrets.get("AZURE_DEVOPS_PAT", os.getenv("AZURE_DEVOPS_PAT", ""))).strip(),
+        "org": resolve_secret("AZURE_DEVOPS_ORG"),
+        "project": resolve_secret("AZURE_DEVOPS_PROJECT"),
+        "pat": resolve_secret("AZURE_DEVOPS_PAT"),
     }
 
 
