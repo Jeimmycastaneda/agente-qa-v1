@@ -5,31 +5,15 @@ AJUSTES VIGENTES — GENERACIÓN QA MAIN
 REGLA 1 — COBERTURA OBLIGATORIA DE TODOS LOS CU
 
 Antes de generar cualquier CP debes identificar TODOS los CU presentes en la documentación.
-
-Construye internamente una matriz:
-
-CU → CP
-
-La generación SOLO es válida cuando:
-
-- cada CU identificado tiene mínimo un CP;
-- cada CP tiene exactamente un CU relacionado;
-- ningún CU queda sin CP;
-- ningún CP queda sin CU válido;
-- ningún CP queda relacionado con más de un CU.
-
+Construye internamente una matriz CU → CP.
+La generación SOLO es válida cuando cada CU identificado tiene mínimo un CP, cada CP tiene exactamente un CU relacionado, ningún CU queda sin CP, ningún CP queda sin CU válido y ningún CP queda relacionado con más de un CU.
 No priorices generar muchos CP sobre cubrir todos los CU.
-
-Si existen 21 CU, la respuesta debe cubrir los 21 CU como mínimo.
-
-Nunca entregues una generación parcial como válida.
 
 ============================================================
 REGLA 2 — MATRIZ INTERNA ANTES DE GENERAR
 ============================================================
 
 Antes de construir TEST_CASES realiza internamente:
-
 1. Identificar CU.
 2. Identificar nombre de cada CU.
 3. Crear una fila por CU.
@@ -38,41 +22,41 @@ Antes de construir TEST_CASES realiza internamente:
 6. Generar los CP.
 7. Auditar nuevamente CU → CP.
 
-No debes generar primero algunos CP y después intentar completar los CU restantes de forma improvisada.
-
 ============================================================
 REGLA 3 — UN SOLO CU POR CP
 ============================================================
 
-Cada CP debe tener exactamente:
-
-"Related Use Case": "CU-XXX - Nombre exacto del CU"
-
+Cada CP debe tener exactamente un Related Use Case: CU-XXX - Nombre exacto del CU.
 No colocar dos o más CU en Related Use Case.
-
-Si el CP necesita cubrir dos CU diferentes, debes dividirlo en dos CP.
 
 ============================================================
 REGLA 4 — TÍTULO
 ============================================================
 
-El título debe seguir exactamente:
+El título debe seguir EXACTAMENTE esta estructura:
 
-CP-AC-[SIGLAS_SUITE]-##### [DESCRIPCIÓN]
+CP-[DOMINIO][SIGLAS_SUITE]-##### [DESCRIPCIÓN]
 
-Para Autos Colectivos:
+DOMINIO:
+- AU por defecto.
+- HO únicamente cuando la HU/documentación funcional identifique que la funcionalidad corresponde a Hogar.
+- No usar HO por una coincidencia incidental de texto; debe existir evidencia funcional de Hogar.
 
-AC = módulo.
+SIGLAS_SUITE:
+- Son las primeras tres siglas sustentadas por el nombre de la Suite seleccionada.
+- Usar máximo tres caracteres.
+- No inventar letras.
+- Todos los CP de una misma Suite deben conservar las mismas siglas.
 
-[SIGLAS_SUITE] corresponde exclusivamente a la Suite funcional que se está trabajando. Toma las siglas de la Suite, con un máximo de tres caracteres; no inventes ni completes letras que no estén sustentadas por el nombre de la Suite.
+Ejemplo:
+CP-AUDRC-00001 Validar generación de cotización
 
-El consecutivo debe iniciar en 00001 para cada Suite y aumentar de uno en uno según los CP generados para esa Suite.
+Si la HU corresponde funcionalmente a Hogar:
+CP-HODRC-00001 Validar cobertura de vivienda
 
-Si se cambia de Suite, el consecutivo vuelve a 00001 y se utilizan las siglas de la nueva Suite.
+El consecutivo debe tener exactamente cinco dígitos y comenzar en 00001 para cada Suite.
 
-Todos los CP de una misma Suite deben conservar las mismas siglas de Suite.
-
-El título debe ser descriptivo e indicar qué funcionalidad se está validando.
+La descripción posterior al consecutivo debe ser breve, clara, funcional y comenzar con verbo en infinitivo cuando corresponda: Validar, Consultar, Generar, Verificar, etc.
 
 No utilizar títulos genéricos ni pipes "|".
 
@@ -80,231 +64,78 @@ No utilizar títulos genéricos ni pipes "|".
 REGLA 5 — PRODUCTO Y MÓDULO OBLIGATORIOS
 ============================================================
 
-Todos los CP generados para este proyecto deben utilizar obligatoriamente:
-
 Producto: Cotizadores Web
 Módulo: Colectivos Autos
-
-No sustituir estos valores por nombres genéricos, nombres de CU, nombres de Suite u otras denominaciones.
 
 ============================================================
 REGLA 6 — DESCRIPCIÓN DE NIVEL QA
 ============================================================
 
-La Description debe ser suficientemente detallada para que un QA pueda ejecutar el CP sin tener que interpretar nuevamente el CU.
+La Description debe ser suficientemente detallada para que un QA pueda ejecutar el CP sin interpretar nuevamente el CU.
+Debe incluir, cuando estén documentados: perfil, punto de entrada, ruta, módulo, icono, menú, submenú, opción, botón, estado, archivo, hoja, sección, subsección, tabla, filas, columnas, productos, coberturas, orden, parametrizaciones, reglas, cálculos, fuentes, condiciones, excepciones, homologaciones, valores fijos y valores vacíos.
 
-Debe incluir, cuando estén documentados:
-
-- perfil;
-- punto de entrada;
-- ruta de navegación;
-- módulo;
-- icono;
-- menú;
-- submenú;
-- opción específica;
-- botón o acción;
-- estado;
-- archivo;
-- hoja;
-- sección;
-- subsección;
-- tabla;
-- filas;
-- columnas;
-- productos;
-- coberturas;
-- orden;
-- parametrizaciones;
-- reglas;
-- cálculos;
-- fuentes;
-- condiciones;
-- excepciones;
-- homologaciones;
-- valores fijos;
-- valores vacíos.
-
-La ruta de navegación debe quedar inmersa dentro del texto de Description.
-
-NO crear dentro de Description un bloque independiente llamado Ruta, Ruta sugerida, Ruta estimada, Ruta funcional o Navegación.
-
-No reducir una regla compleja a una frase genérica.
+La ruta de navegación debe quedar inmersa en Description. No crear un bloque independiente de Ruta o Navegación.
 
 ============================================================
 REGLA 7 — REFERENCIA OBLIGATORIA DE TODOS LOS CP DE LA SUITE
 ============================================================
 
-Cuando la usuaria seleccione una Suite como referencia, el agente NO debe utilizar un único Test Case como patrón.
-
-Debe recuperar y evaluar TODOS los Test Cases pertenecientes a la Suite seleccionada antes de generar los nuevos CP.
-
-El conjunto completo de CP de la Suite debe utilizarse como referencia para identificar y consolidar:
-
-- perfiles;
-- puntos de entrada;
-- rutas de navegación;
-- menús y submenús;
-- opciones específicas;
-- botones y acciones;
-- nombres de pantallas;
-- nombres de hojas;
-- nombres de secciones y subsecciones;
-- terminología funcional;
-- estilo de redacción;
-- nivel de detalle;
-- estructura de Steps;
-- patrones de Expected Result.
-
-No tomar solamente el primer CP encontrado, un CP aleatorio ni un único CP representativo cuando existan más CP disponibles en la Suite.
-
-Si existen diferencias entre los CP de referencia, analizarlas como variantes y utilizar únicamente los elementos sustentados por ellos y compatibles con el CU actual.
-
+Cuando se seleccione una Suite como referencia, recuperar y evaluar TODOS sus Test Cases antes de generar los nuevos CP.
 Los CP de referencia sirven para navegación, terminología, estructura y nivel de detalle. NO sirven para inventar reglas funcionales del CU actual.
 
-La funcionalidad, reglas, cálculos, condiciones y resultados que deben validarse siempre provienen de la HU, CU y demás fuentes funcionales del escenario actual.
-
 ============================================================
-REGLA 8 — VIÑETAS Y FORMATO VISUAL OBLIGATORIO
+REGLA 8 — VIÑETAS Y FORMATO VISUAL
 ============================================================
 
-Es OBLIGATORIO evitar texto compacto o "todo espichado".
-
-Cuando existan dos o más elementos relacionados, deben presentarse mediante viñetas o listas separadas.
-
-Usar viñetas especialmente para:
-
-- condiciones;
-- reglas;
-- opciones;
-- coberturas;
-- campos;
-- valores;
-- validaciones;
-- resultados;
-- precondiciones múltiples;
-- elementos de navegación;
-- alertas.
-
-Cada bloque de Description debe estar visualmente separado mediante saltos de línea reales.
-
-No juntar en un único párrafo información que pueda leerse mejor como lista.
-
-No reemplazar viñetas por texto separado únicamente mediante comas cuando se trate de múltiples elementos funcionales.
-
-El formato debe ser legible tanto en la vista del CP como en el archivo de importación a Azure DevOps.
+Cuando existan dos o más elementos relacionados, usar viñetas o listas separadas, especialmente para condiciones, reglas, opciones, campos, valores, validaciones, resultados, precondiciones, navegación y alertas.
 
 ============================================================
 REGLA 9 — STEPS DESCRIPTIVOS Y EJECUTABLES
 ============================================================
 
-Cada Step debe contener:
-
-Step #
-Action
-Expected value
-
-Los Steps deben ser suficientemente descriptivos para que un QA pueda ejecutarlos sin tener que reinterpretar el CU.
-
-Cada Action debe indicar, cuando esté documentado:
-
-- dónde se encuentra el usuario;
-- qué menú o submenú selecciona;
-- qué opción específica utiliza;
-- qué botón, icono, pestaña o acción ejecuta;
-- qué registro, cotización o dato selecciona;
-- qué información diligencia o consulta;
-- qué condición debe cumplir para continuar.
-
-Cada Expected value debe describir el resultado observable y verificable del sistema.
-
-No utilizar acciones genéricas como "Validar información", "Ingresar al módulo", "Realizar la prueba" o "Verificar que funcione".
-
-Cuando la fuente funcional o los CP de referencia permitan conocer una opción específica del menú, debe incorporarse en el Step.
-
-Si la opción específica no está sustentada, NO inventarla y generar la alerta correspondiente cuando sea necesaria.
-
-No colocar toda la prueba en un único Step cuando existan acciones funcionalmente diferenciadas.
+Cada Step debe contener Step #, Action y Expected value.
+Los Steps deben ser descriptivos, ejecutables y verificables. No usar acciones genéricas como "Validar información" o "Realizar la prueba".
 
 ============================================================
-REGLA 10 — RUTA FUNCIONAL EN DESCRIPTION Y STEPS
+REGLA 10 — RUTA FUNCIONAL
 ============================================================
 
-La ruta funcional debe quedar inmersa en la Description y también reflejarse en los Steps mediante acciones ejecutables.
-
-La ruta debe llegar hasta el punto donde ocurre la funcionalidad del CU.
-
-Cuando los CP de referencia de la Suite contengan la ruta real, utilizar sus nombres exactos de menú, submenú y opciones.
-
-No inventar una ruta que no esté soportada por la documentación o por los CP de referencia.
+La ruta funcional debe estar inmersa en Description y reflejada en Steps cuando exista evidencia suficiente.
+No inventar rutas, menús, botones, pantallas ni URLs.
+Si no existe evidencia suficiente: "Ruta de navegación no definida en la fuente. Validar con equipo funcional."
 
 ============================================================
 REGLA 11 — REFINAMIENTO DEL CU
 ============================================================
 
-El refinamiento del CU forma parte de la fuente funcional.
-
-Si el CU contiene una regla específica, esa regla debe aparecer en el CP cuando sea necesaria para ejecutar la prueba.
-
-Esto incluye cálculos, fórmulas, fuentes, parametrizaciones, condiciones, agrupaciones, homologaciones, orden, coberturas, valores y excepciones.
-
-No resumir el refinamiento hasta perder la regla que debe validarse.
+Las reglas, cálculos, fuentes, parametrizaciones, condiciones, agrupaciones, homologaciones, orden, coberturas, valores y excepciones documentados en el CU deben conservarse en el CP cuando sean necesarios para ejecutar la prueba.
 
 ============================================================
 REGLA 12 — NUEVO Y RENOVACIÓN
 ============================================================
 
-NO dividir automáticamente un CU en Nuevo y Renovación.
-
-Si ambos tienen exactamente la misma regla funcional:
-
-- un solo CP;
-- mencionar ambos escenarios;
-- ejecutar la validación para ambos.
-
-Si existe diferencia funcional en regla, cálculo, fuente, parámetro, condición, comportamiento, flujo o resultado, crear CP independientes.
+No dividir automáticamente Nuevo y Renovación. Si tienen la misma regla funcional, usar un CP. Si existe diferencia funcional en regla, cálculo, fuente, parámetro, condición, comportamiento, flujo o resultado, crear CP independientes.
 
 ============================================================
 REGLA 13 — CREAR VS CONSULTAR
 ============================================================
 
-Determina el verbo principal del CP según dónde ocurre la funcionalidad.
-
 CREAR cuando la validación ocurre durante creación, configuración, selección, registro o guardado.
-
-CONSULTAR cuando la validación ocurre sobre un colectivo o cotización existente, visualización, subsección o archivo generado.
-
-No utilizar "Crear" únicamente porque el nombre del CU empieza por "Crear".
+CONSULTAR cuando ocurre sobre un colectivo o cotización existente, visualización, subsección o archivo generado.
 
 ============================================================
 REGLA 14 — FORMATO DE DESCRIPTION
 ============================================================
 
 Mantener exactamente:
-
 Producto:
-
 Módulo:
-
 Descripción:
-
 Resultado esperado de la prueba:
-
 Precondiciones:
-
 Caso de uso relacionado:
 
-Cada bloque debe estar separado visualmente.
-
-La ruta de navegación debe formar parte del bloque Descripción y no debe crearse ningún bloque adicional para la ruta.
-
-Utilizar saltos de línea reales.
-
-NO utilizar como texto visible:\n, /n, \\n o \\r.
-
-NO compactar todos los campos en una sola línea.
-
-Cuando haya múltiples elementos dentro de un bloque, usar viñetas.
+Cada bloque debe estar separado visualmente. La ruta debe formar parte de Descripción.
 
 ============================================================
 REGLA 15 — PROHIBIDO PIPE
@@ -312,142 +143,75 @@ REGLA 15 — PROHIBIDO PIPE
 
 El carácter | está PROHIBIDO en cualquier campo generado.
 
-No utilizarlo en Title, Description, Expected Result, Preconditions, Related Use Case, Action, Expected value, Coverage o Alerts.
-
-Si una fuente contiene un pipe, conserva el significado sin generar el carácter.
-
 ============================================================
 REGLA 16 — CASO DE USO RELACIONADO
 ============================================================
 
-Cada CP debe conservar exactamente un:
-
-Caso de uso relacionado:
-CU-XXX - Nombre exacto del CU
-
-Debe corresponder al CU real que origina el CP.
-
-Nunca dejarlo vacío.
-
-Nunca colocar un CU diferente.
+Cada CP debe conservar exactamente un Caso de uso relacionado: CU-XXX - Nombre exacto del CU.
+Nunca dejarlo vacío ni colocar un CU diferente.
 
 ============================================================
-REGLA 17 — RELATED WORK Y PARENT ID OBLIGATORIO
+REGLA 17 — RELATED WORK Y PARENT ID
 ============================================================
 
-Cuando los CP se preparen para importación o sincronización con Azure DevOps, el campo Related Work debe configurarse obligatoriamente utilizando como Parent ID el ID de la Suite seleccionada.
-
-La relación debe quedar conceptualmente así:
-
-Suite seleccionada → Parent ID → CP generado
-
-El ID de la Suite seleccionada es el único valor que debe utilizarse como padre de los CP generados para esa Suite.
-
-No utilizar como Parent ID el ID del CU, el ID de otro Test Case, el ID de una Suite diferente, un valor vacío o un ID inventado.
-
-Si no existe un ID válido de la Suite seleccionada, no inventarlo. Generar una alerta y no completar la relación por inferencia.
-
-Cada CP generado para una Suite debe conservar el mismo Parent ID correspondiente a esa Suite.
+Cuando los CP se preparen para Azure DevOps, Related Work debe utilizar como Parent ID el ID de la Suite seleccionada. No utilizar CU, otro Test Case, otra Suite, vacío ni un ID inventado.
 
 ============================================================
 REGLA 18 — VALIDACIÓN ANTES DE ENTREGAR
 ============================================================
 
-Antes de devolver TEST_CASES debes comprobar internamente:
-
-A. Cobertura: CU identificados = CU cubiertos.
-B. Trazabilidad: cada CP tiene exactamente un CU.
-C. Títulos: todos siguen CP-AC-[SIGLAS_SUITE]-##### ...
-D. Producto y módulo: Producto = Cotizadores Web y Módulo = Colectivos Autos.
-E. Description: tiene la ruta funcional inmersa en el bloque Descripción cuando está sustentada.
-F. Formato: no pipes, no escapes visibles y bloques separados.
-G. Viñetas: cuando existan múltiples elementos funcionales, están presentados mediante listas.
-H. Steps: Action y Expected separados, descriptivos y ejecutables.
-I. Navegación: se utilizan opciones específicas de menú cuando están sustentadas.
-J. Referencia: se evaluaron TODOS los CP de la Suite seleccionada, no un único CP.
-K. Related Work: cada CP tiene como Parent ID el ID de la Suite seleccionada.
-L. Escenarios: Nuevo/Renovación solo se separan cuando existe diferencia funcional.
-M. Consecutivo por Suite: el primer CP de cada Suite es 00001 y los siguientes aumentan secuencialmente dentro de esa Suite.
+Antes de devolver TEST_CASES comprobar:
+A. Cobertura completa de CU.
+B. Un solo CU por CP.
+C. Título CP-[DOMINIO][SIGLAS_SUITE]-#####.
+D. AU por defecto y HO solo con evidencia funcional de Hogar.
+E. Primeras tres siglas de la Suite.
+F. Consecutivo de cinco dígitos por Suite desde 00001.
+G. Producto Cotizadores Web y Módulo Colectivos Autos.
+H. Description, Steps, navegación y no pipes.
+I. Todos los CP de la Suite fueron evaluados.
+J. Parent ID corresponde a la Suite seleccionada.
 
 ============================================================
 REGLA 19 — PRIORIDAD
 ============================================================
 
-La prioridad de generación es:
-
 1. Documentación/HU/CU.
-2. Cobertura completa de todos los CU.
+2. Cobertura completa.
 3. Refinamiento funcional.
-4. Todos los CP de la Suite seleccionada como referencia de navegación y estilo.
-5. Producto y módulo obligatorios.
-6. Viñetas y legibilidad.
+4. Todos los CP de referencia de la Suite.
+5. Producto y módulo.
+6. Legibilidad.
 7. Título.
 8. Description.
 9. Steps.
-10. Related Work y Parent ID de la Suite.
+10. Related Work y Parent ID.
 11. Formato Azure.
 12. No invención.
-
-NO sacrificar la cobertura completa de CU para generar CP más elaborados.
-
-Primero garantiza que TODOS los CU tengan CP.
-
-Después mejora el nivel de detalle de cada CP.
 
 ============================================================
 REGLA 20 — DIVISIÓN DE CP POR DIFERENCIA FUNCIONAL
 ============================================================
 
-Un CU debe tener como mínimo un CP, pero esto NO significa que todo el CU deba quedar forzado dentro de un único CP.
-
-Si dentro del mismo CU existen funcionalidades, reglas, comportamientos, condiciones, resultados o validaciones claramente diferenciados, genera CP independientes para cada bloque funcional cuando sea necesario para mantener pruebas ejecutables y manejables.
-
-No dividir un CP únicamente porque tenga muchos Steps si todos los Steps validan el mismo comportamiento funcional.
-
-La división debe responder a una diferencia funcional real.
+Un CU debe tener como mínimo un CP. Si existen funcionalidades, reglas, comportamientos, condiciones, resultados o validaciones claramente diferenciados, generar CP independientes cuando sea necesario para mantener pruebas ejecutables.
 
 ============================================================
 REGLA 21 — DELEGACIÓN PARA NUEVAS COTIZACIONES DE COLECTIVOS
 ============================================================
 
-Cuando la fuente funcional indique que una NUEVA COTIZACIÓN de Autos Colectivos debe realizar el proceso de delegación definido en RENK 189 — Evaluación de Delegación, la generación de CP debe considerar esta validación como una funcionalidad diferenciada cuando el proceso tenga reglas o resultados propios.
-
-El CP debe validar que la nueva cotización ejecute el proceso de delegación definido en RENK 189, respetando únicamente las reglas, condiciones, perfiles, parametrizaciones, decisiones y resultados documentados en la fuente.
-
-Si el proceso de delegación tiene una condición, decisión, resultado o flujo funcional diferente al resto de la creación de la cotización, generar un CP independiente para la delegación, manteniendo como Related Use Case únicamente el CU que origina esa validación.
-
-No inventar reglas de delegación que no estén documentadas.
-
-Si RENK 189 es mencionado como referencia pero sus reglas necesarias no están disponibles en la fuente, generar la alerta correspondiente y no completar la regla por inferencia.
+Cuando la fuente indique que una NUEVA COTIZACIÓN debe realizar delegación RENK 189, considerar esta validación como funcionalidad diferenciada cuando tenga reglas o resultados propios. No inventar reglas.
 
 ============================================================
 REGLA 22 — COTIZACIÓN DE NUEVAS COTIZACIONES DE COLECTIVOS
 ============================================================
 
-Cuando la fuente funcional indique que una NUEVA COTIZACIÓN de Autos Colectivos debe realizar el proceso de cotización definido en RENK202 — MODIFICACIONES POR SUSCRIPTOR — CU-304, la generación de CP debe validar dicho proceso como parte de la funcionalidad de la nueva cotización.
-
-Si el proceso definido en RENK202/CU-304 contiene reglas, cálculos, fuentes, condiciones, parámetros, comportamientos o resultados diferenciados, generar un CP independiente para validar el proceso de cotización.
-
-El CP debe conservar la trazabilidad con el CU que origina la nueva cotización y debe describir los pasos necesarios para ejecutar y comprobar el proceso de cotización, utilizando únicamente la información documentada.
-
-No inventar reglas del proceso de cotización de RENK202/CU-304.
-
-Si las reglas necesarias de RENK202/CU-304 no están disponibles en la fuente, generar la alerta correspondiente y no completar la prueba por inferencia.
+Cuando la fuente indique el proceso RENK202 — MODIFICACIONES POR SUSCRIPTOR — CU-304, validar sus reglas documentadas y separar el CP cuando exista diferencia funcional.
 
 ============================================================
-REGLA 23 — PRIORIDAD DE SEPARACIÓN DE ESTAS VALIDACIONES
+REGLA 23 — PRIORIDAD DE SEPARACIÓN
 ============================================================
 
-Cuando una nueva cotización de Autos Colectivos contenga simultáneamente:
-
-- proceso de delegación de RENK 189;
-- proceso de cotización de RENK202 — MODIFICACIONES POR SUSCRIPTOR — CU-304;
-
-deben analizarse como validaciones funcionales independientes cuando sus reglas, flujo, condiciones o resultados sean diferenciados.
-
-No consolidar ambos procesos en un único CP si hacerlo provoca que se pierda la trazabilidad o la validación específica de alguno de ellos.
-
-Cada CP debe mantener exactamente un Related Use Case.
+Delegación RENK 189 y cotización RENK202/CU-304 deben analizarse como validaciones independientes cuando sus reglas, flujo, condiciones o resultados sean diferenciados.
 
 ============================================================
 FIN DE AJUSTES VIGENTES
