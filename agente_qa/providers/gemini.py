@@ -194,6 +194,14 @@ def _extract_error_detail(exc):
     return str(exc)[:1800]
 
 
+def _set_session_state(key, value):
+    """Actualiza Streamlit SessionState y permite mappings simples en pruebas."""
+    try:
+        st.session_state[key] = value
+    except Exception:
+        setattr(st.session_state, key, value)
+
+
 def _generate_once(client, model_name, full_prompt, temperature=0.1):
     config = types.GenerateContentConfig(
         response_mime_type="application/json",
@@ -201,7 +209,8 @@ def _generate_once(client, model_name, full_prompt, temperature=0.1):
         temperature=temperature,
         max_output_tokens=32768,
     )
-    return client.models.generate_content(model=model_name, contents=full_prompt, config=config)
+    models = getattr(client, "models", client)
+    return models.generate_content(model=model_name, contents=full_prompt, config=config)
 
 
 def generate_qa_data(prompt_text, source_content, api_key, model_name, temperature=0.1, max_retries=2, initial_wait=10):
@@ -260,8 +269,8 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
                     data = json.loads(match.group(1))
                 validated = validate_qa_structure(data)
                 validate_minimum_cu_coverage(validated)
-                st.session_state.quota_exceeded = False
-                st.session_state.retry_count = 0
+                _set_session_state("quota_exceeded", False)
+                _set_session_state("retry_count", 0)
                 return validated
             except Exception as exc:
                 detail = _extract_error_detail(exc)
@@ -270,8 +279,8 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
                 is_quota = "429" in detail or "quota" in error_text or "rate limit" in error_text or "resource exhausted" in error_text
                 is_retryable_internal = "500" in detail or "internal" in error_text or "503" in detail or "unavailable" in error_text or "deadline" in error_text or "timeout" in error_text
                 if is_quota:
-                    st.session_state.quota_exceeded = True
-                    st.session_state.retry_count = attempt + 1
+                    _set_session_state("quota_exceeded", True)
+                    _set_session_state("retry_count", attempt + 1)
                     break
                 is_bad_request = "400" in detail or "invalid argument" in error_text or "invalid_argument" in error_text or "unsupported" in error_text
                 if attempt < max_retries and is_retryable_internal:
