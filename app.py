@@ -18,7 +18,7 @@ from agente_qa.ui.results import render_results_section
 from agente_qa.ui.azure_section import render_azure_publish, render_azure_sidebar
 from agente_qa.ui.state import init_session_state
 from agente_qa.ui.coverage import coverage_gate_or_stop
-from agente_qa.ui.editor import render_azure_style_editor, delete_test_case
+from agente_qa.ui.editor import render_azure_style_editor
 from agente_qa.export.excel import create_excel
 from agente_qa.export.pdf import create_pdf
 from agente_qa.extraction import extract_source
@@ -63,11 +63,11 @@ with st.sidebar:
         list_test_suites=list_test_suites,
         list_test_cases=list_test_cases,
         get_test_case_detail=get_test_case_detail,
-        delete_test_case=delete_test_case,
+        delete_test_case=None,
         calculate_cu_coverage=calculate_cu_coverage,
         create_excel=create_excel,
         create_pdf=create_pdf,
-        result=st.session_state.get("result_json"),
+        result=None,
         source_name=st.session_state.get("source_name", ""),
     )
 
@@ -96,7 +96,6 @@ render_results_section(
     calculate_cu_coverage=calculate_cu_coverage,
     render_cu_coverage=render_cu_coverage,
     render_editor=render_azure_style_editor,
-    delete_test_case=delete_test_case,
     create_excel=create_excel,
     create_pdf=create_pdf,
     coverage_gate_or_stop=lambda data: coverage_gate_or_stop(
