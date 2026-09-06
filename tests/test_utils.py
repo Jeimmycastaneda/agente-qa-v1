@@ -17,15 +17,7 @@ def test_safe_text_supports_multiple_fallbacks():
 
 
 def test_build_azure_description_removes_trailing_pipe_and_preserves_sections():
-    result = build_azure_description(
-        "Cotizadores Web |",
-        "Cotizador Autos Colectivos |",
-        "Validar cotización |",
-        "La cotización queda cotizada |",
-        "Usuario autenticado |",
-        "CU-325 |",
-    )
-
+    result = build_azure_description("Cotizadores Web |", "Cotizador Autos Colectivos |", "Validar cotización |", "La cotización queda cotizada |", "Usuario autenticado |", "CU-325 |")
     assert "Producto: Cotizadores Web" in result
     assert "Módulo: Cotizador Autos Colectivos" in result
     assert "Descripción: Validar cotización" in result
@@ -35,21 +27,24 @@ def test_build_azure_description_removes_trailing_pipe_and_preserves_sections():
     assert not re.search(r"\|\s*$", result)
 
 
-def test_build_case_title_does_not_use_cp_id_as_title():
-    case_id = "CP-AC-CAC-00001"
-    tc = {"Title": case_id, "Scenario": "Consultar cotización en estado Cotizado"}
-
-    assert build_case_title(tc, case_id) == "Consultar cotización en estado Cotizado"
+def test_build_case_title_uses_au_and_first_three_suite_siglas():
+    tc = {"Title": "Consultar cotización en estado Cotizado"}
+    assert build_case_title(tc, "CP-AU-00001", suite_name="DRC") == "CP-AUDRC-00001 Consultar cotización en estado Cotizado"
 
 
-def test_normalize_case_id_keeps_valid_id():
-    valid = "CP-AC-CAC-00012"
+def test_build_case_title_uses_ho_when_hogar_is_identified():
+    tc = {"Title": "Validar cobertura de vivienda", "Module": "Hogar"}
+    assert build_case_title(tc, "CP-AU-00001", suite_name="DRC", module="Hogar") == "CP-HODRC-00001 Validar cobertura de vivienda"
+
+
+def test_normalize_case_id_keeps_supported_id():
+    valid = "CP-AUDRC-00012"
     assert normalize_case_id(valid, "Cotizador Autos Colectivos", 99) == valid
 
 
-def test_normalize_case_id_generates_expected_format():
+def test_normalize_case_id_generates_legacy_default_format_when_no_suite_is_provided():
     generated = normalize_case_id("", "Cotizador Autos Colectivos", 7)
-    assert re.fullmatch(r"CP-AC-[A-Z0-9_-]+-00007", generated)
+    assert generated == "CP-AU-00007"
 
 
 def test_normalize_coverage_and_validation_method():
