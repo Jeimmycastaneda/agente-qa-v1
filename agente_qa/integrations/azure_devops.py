@@ -52,7 +52,16 @@ def _clean_azure_text(value):
     """Normaliza texto heredado antes de enviarlo al formato de Azure."""
     if value is None:
         return ""
-    return str(value).replace("|", "").replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+    return (
+        str(value)
+        .replace("|", "")
+        .replace("\\r\\n", " ")
+        .replace("\\n", " ")
+        .replace("\\r", " ")
+        .replace("\r\n", " ")
+        .replace("\n", " ")
+        .replace("\r", " ")
+    )
 
 
 def build_description_html(test_case: dict) -> str:
