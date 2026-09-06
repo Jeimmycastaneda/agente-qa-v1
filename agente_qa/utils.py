@@ -157,6 +157,9 @@ def _domain_prefix(source_content="", hu_text="", module=""):
 
 
 def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", module=""):
+    """Construye el título final usando la Suite explícita o la guardada en el CP."""
+    if not suite_name and isinstance(tc, dict):
+        suite_name = safe_text(tc.get("SUITE_NAME"), tc.get("Suite Name"), tc.get("SUITE"))
     suite_prefix = _suite_prefix(suite_name)
     tc_module = safe_text(tc.get("Module")) if isinstance(tc, dict) else ""
     domain_prefix = _domain_prefix(source_content, hu_text, module or tc_module)
