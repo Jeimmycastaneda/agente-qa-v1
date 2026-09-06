@@ -22,8 +22,10 @@ def _apply_suite_to_result(result, suite_name):
     for index, original in enumerate(data.get("TEST_CASES", []) or [], start=1):
         tc = dict(original)
         module = safe_text(tc.get("Module"), "GENERAL")
+        # El ID oficial no depende del valor que entregue Gemini: se genera de
+        # forma secuencial, única y determinista para esta generación.
         case_id = normalize_case_id(
-            tc.get("ID"), module, index, suite_name=suite_name,
+            "", module, index, suite_name=suite_name,
             source_content=source_content, hu_text=hu_text,
         )
         title = build_case_title(
