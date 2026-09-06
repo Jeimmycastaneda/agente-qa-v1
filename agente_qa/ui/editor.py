@@ -91,19 +91,3 @@ def render_azure_style_editor(test_case, selected_index=0):
         })
         return "saved"
     return None
-
-
-def delete_test_case(result, selected_index):
-    """Elimina un CP de TEST_CASES y mantiene COVERAGE coherente."""
-    cases = result.get("TEST_CASES", [])
-    if not isinstance(cases, list) or selected_index < 0 or selected_index >= len(cases):
-        return False
-    deleted = cases.pop(selected_index)
-    deleted_id = _text(deleted.get("ID")).strip()
-    coverage = result.get("COVERAGE")
-    if isinstance(coverage, list):
-        result["COVERAGE"] = [
-            row for row in coverage
-            if _text(row.get("Test Case") or row.get("Test Case ID") or row.get("ID")).strip() != deleted_id
-        ]
-    return True
