@@ -6,13 +6,13 @@ código legado y pruebas existentes.
 """
 from __future__ import annotations
 
+import os
+from dataclasses import dataclass
+
 from agente_qa.integrations.azure_runtime import (
     AzureDevOpsError,
     _azure_description_html,
     _azure_steps_xml,
-    _az_config,
-    _az_validate,
-    _az_auth_header,
     add_test_cases_to_suite,
     create_azure_test_case_work_item,
     create_selected_cases_in_azure,
@@ -23,9 +23,29 @@ from agente_qa.integrations.azure_runtime import (
     test_connection,
 )
 
-
-# Aliases históricos: la lógica real permanece centralizada en azure_runtime.
 AzureDevOpsApiError = AzureDevOpsError
+
+
+@dataclass(frozen=True)
+class AzureDevOpsConfig:
+    """Configuración legacy compatible con consumidores y pruebas previas."""
+
+    enabled: bool = False
+    organization: str = ""
+    project: str = ""
+    pat: str = ""
+
+    @classmethod
+    def from_env(cls):
+        enabled = os.getenv("AZDO_ENABLED", "").strip().lower() in {
+            "1", "true", "yes", "on"
+        }
+        return cls(
+            enabled=enabled,
+            organization=os.getenv("AZDO_ORGANIZATION", "").strip(),
+            project=os.getenv("AZDO_PROJECT", "").strip(),
+            pat=os.getenv("AZDO_PAT", "").strip(),
+        )
 
 
 def build_description_html(test_case: dict) -> str:
@@ -46,6 +66,7 @@ def build_steps_xml(test_case: dict) -> str:
 
 
 __all__ = [
+    "AzureDevOpsConfig",
     "AzureDevOpsError",
     "AzureDevOpsApiError",
     "add_test_cases_to_suite",
