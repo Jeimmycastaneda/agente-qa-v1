@@ -194,10 +194,11 @@ def _extract_error_detail(exc):
     return str(exc)[:1800]
 
 
-def _generate_once(client, model_name, full_prompt):
+def _generate_once(client, model_name, full_prompt, temperature=0.1):
     config = types.GenerateContentConfig(
         response_mime_type="application/json",
         response_schema=SCHEMA,
+        temperature=temperature,
         max_output_tokens=32768,
     )
     return client.models.generate_content(model=model_name, contents=full_prompt, config=config)
@@ -246,7 +247,7 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
     for candidate in candidates:
         for attempt in range(max_retries + 1):
             try:
-                response = _generate_once(client, candidate, full_prompt)
+                response = _generate_once(client, candidate, full_prompt, temperature)
                 response_text = (response.text or "").strip()
                 if not response_text:
                     raise RuntimeError(f"{candidate}: Gemini devolvió una respuesta vacía.")
