@@ -48,21 +48,37 @@ class AzureDevOpsConfig:
         )
 
 
+def _clean_azure_text(value):
+    """Normaliza texto heredado antes de enviarlo al formato de Azure."""
+    if value is None:
+        return ""
+    return str(value).replace("|", "").replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n")
+
+
 def build_description_html(test_case: dict) -> str:
     """Alias compatible para el generador de Description de Azure."""
     return _azure_description_html(
-        "Producto: " + str(test_case.get("Product", ""))
-        + "\n\nMódulo: " + str(test_case.get("Module", ""))
-        + "\n\nDescripción: " + str(test_case.get("Description", ""))
-        + "\n\nResultado esperado de la prueba: " + str(test_case.get("Expected Result", ""))
-        + "\n\nPrecondiciones: " + str(test_case.get("Preconditions", ""))
-        + "\n\nCaso de uso relacionado: " + str(test_case.get("Related Use Case", ""))
+        "Producto: " + _clean_azure_text(test_case.get("Product", ""))
+        + "\n\nMódulo: " + _clean_azure_text(test_case.get("Module", ""))
+        + "\n\nDescripción: " + _clean_azure_text(test_case.get("Description", ""))
+        + "\n\nResultado esperado de la prueba: " + _clean_azure_text(test_case.get("Expected Result", ""))
+        + "\n\nPrecondiciones: " + _clean_azure_text(test_case.get("Preconditions", ""))
+        + "\n\nCaso de uso relacionado: " + _clean_azure_text(test_case.get("Related Use Case", ""))
     )
 
 
 def build_steps_xml(test_case: dict) -> str:
     """Alias compatible para el XML de Steps de Azure."""
-    return _azure_steps_xml(test_case.get("Steps") or [])
+    steps = []
+    for step in test_case.get("Steps") or []:
+        if not isinstance(step, dict):
+            continue
+        clean = dict(step)
+        for key in ("Action", "action", "Step", "Expected", "expected", "Expected value"):
+            if key in clean:
+                clean[key] = _clean_azure_text(clean[key])
+        steps.append(clean)
+    return _azure_steps_xml(steps)
 
 
 __all__ = [
