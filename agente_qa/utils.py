@@ -126,11 +126,8 @@ def _clean_description_content(value):
 
     blocks = _extract_labeled_blocks(text)
     if blocks:
-        # Si Gemini ya entregó la estructura completa, Description solo debe conservar
-        # el contenido de su propio bloque. Los demás bloques se toman de sus campos.
         return blocks.get("Descripción", "").strip() or text
 
-    # También elimina un encabezado aislado de Description para evitar duplicarlo.
     text = re.sub(r"(?is)^\s*\**Descripción\**\s*:\s*", "", text, count=1).strip()
     return text
 
@@ -146,8 +143,6 @@ def build_azure_description(product, module, description, expected, precondition
         "Caso de uso relacionado": _remove_trailing_pipe(related_use_case),
     }
 
-    # Gemini puede devolver la estructura completa dentro de Description. Se descompone
-    # una sola vez y se evita que sus bloques vuelvan a imprimirse dentro de Description.
     combined_blocks = {}
     for value in raw_values.values():
         blocks = _extract_labeled_blocks(value)
@@ -159,7 +154,6 @@ def build_azure_description(product, module, description, expected, precondition
     for label, value in raw_values.items():
         values[label] = combined_blocks.get(label, value)
 
-    # Segunda barrera: ningún bloque estructural debe quedar incrustado dentro de otro.
     for label in _DESCRIPTION_LABELS:
         blocks = _extract_labeled_blocks(values[label])
         if blocks and label in blocks:
@@ -217,35 +211,41 @@ def module_token(module, title="", scenario=""):
     return "".join(w[0] for w in words)[:8]
 
 
-def build_case_title(tc, case_id):
-    """Garantiza que Title sea funcional y no solamente el ID del CP."""
-    raw_title = safe_text(tc.get("Title"))
-    normalized_title = re.sub(r"\s+", " ", raw_title).strip()
-    if (
-        not normalized_title
-        or normalized_title.upper() == case_id.upper()
-        or re.fullmatch(r"CP-[A-Z0-9_-]+-\d{5}", normalized_title.upper())
-    ):
-        candidates = [
-            safe_text(tc.get("Scenario")),
-            safe_text(tc.get("Description")),
-            safe_text(tc.get("Related Use Case")),
-        ]
-        for candidate in candidates:
-            candidate = re.sub(r"\s+", " ", candidate).strip()
-            if candidate and candidate.upper() != case_id.upper():
-                normalized_title = candidate
-                break
-    if not normalized_title:
-        normalized_title = f"Caso de prueba {case_id}"
-    return normalized_title
+def _suite_prefix(suite_name):
+    """Obtiene las primeras tres siglas/términos de la Suite, sin inventar letras."""
+    text = safe_text(suite_name)
+    words = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", text)
+    if not words:
+        return "GEN"
+    return "".join(word[0] for word in words)[:3].upper()
 
 
-def normalize_case_id(raw_id, module, index, prefix="CP-AC-"):
+def _domain_prefix(source_content="", hu_text="", module=""):
+    """Determina AU por defecto; usa HO solo cuando la fuente identifica Hogar."""
+    evidence = " ".join(safe_text(x) for x in (source_content, hu_text, module)).casefold()
+    hogar_terms = ("hogar", "hogares", "vivienda", "viviendas", "home insurance", "home")
+    return "HO" if any(term in evidence for term in hogar_terms) else "AU"
+
+
+def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", module=""):
+    """Construye el título normalizado: dominio + primeras tres siglas de Suite + consecutivo + descripción."""
+    suite_prefix = _suite_prefix(suite_name)
+    domain_prefix = _domain_prefix(source_content, hu_text, module)
+    description = safe_text(tc.get("Title"))
+    if not description or re.fullmatch(r"CP-[A-Z0-9_-]+-\d{5}(?:\s+.*)?", description.upper()):
+        description = safe_text(tc.get("Scenario"), safe_text(tc.get("Description")))
+    description = re.sub(r"\s+", " ", description).strip()
+    if not description:
+        description = "Caso de prueba"
+    description = description.replace("|", "")
+    return f"CP-{domain_prefix}{suite_prefix}-{case_id.split('-')[-1]} {description}".strip()
+
+
+def normalize_case_id(raw_id, module, index, prefix="CP-AU-"):
     candidate = safe_text(raw_id)
-    if re.fullmatch(r"CP-AC-[A-Za-z0-9_-]+-\d{5}", candidate):
+    if re.fullmatch(r"CP-(?:AU|HO)[A-Z0-9]{1,3}-\d{5}", candidate):
         return candidate
-    return f"{prefix}{module_token(module)}-{index:05d}"
+    return f"{prefix}{index:05d}"
 
 
 def find_coverage(data, tc):
