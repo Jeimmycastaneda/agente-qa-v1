@@ -1,6 +1,6 @@
 """Utilidades de texto, títulos, IDs y trazabilidad QA.
 
-Código copiado desde main. mao-dev-branch solo aporta la estructura.
+Código funcional copiado desde main. mao-dev-branch solo aporta la estructura.
 """
 
 import json
@@ -212,7 +212,7 @@ def module_token(module, title="", scenario=""):
 
 
 def _suite_prefix(suite_name):
-    """Obtiene hasta tres siglas de Suite sin inventar letras."""
+    """Obtiene las primeras tres siglas sustentadas por el nombre de la Suite."""
     text = safe_text(suite_name)
     words = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", text)
     if not words:
@@ -223,15 +223,31 @@ def _suite_prefix(suite_name):
 
 
 def _domain_prefix(source_content="", hu_text="", module=""):
-    """Determina AU por defecto y HO solo ante evidencia funcional de Hogar."""
+    """Determina AU por defecto y HO solo ante evidencia funcional explícita de Hogar."""
     evidence = " ".join(safe_text(x) for x in (source_content, hu_text, module)).casefold()
-    return "HO" if re.search(r"\b(?:hogar|hogares|vivienda|viviendas)\b", evidence) else "AU"
+    hogar_patterns = (
+        r"\bproducto\s*[:\-]?\s*hogar\b",
+        r"\bmódulo\s*[:\-]?\s*hogar\b",
+        r"\bmodule\s*[:\-]?\s*hogar\b",
+        r"\bseguro\s+de\s+hogar\b",
+        r"\bseguros?\s+de\s+hogar\b",
+        r"\bcotizador(?:es)?\s+de\s+hogar\b",
+        r"\bcotizador(?:es)?\s+hogar\b",
+        r"\bproducto\s+hogar\b",
+        r"\bmódulo\s+hogar\b",
+        r"\bfuncionalidad\s+de\s+hogar\b",
+    )
+    return "HO" if any(re.search(pattern, evidence) for pattern in hogar_patterns) else "AU"
 
 
 def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", module=""):
-    """Construye CP-[DOMINIO][SUITE]-##### + descripción."""
+    """Construye: CP-[DOMINIO][SIGLAS_SUITE]-##### [DESCRIPCIÓN]."""
     suite_prefix = _suite_prefix(suite_name)
     domain_prefix = _domain_prefix(source_content, hu_text, module)
+    raw_case_id = safe_text(case_id)
+    match = re.search(r"(\d{5})$", raw_case_id)
+    sequence = match.group(1) if match else "00001"
+
     description = safe_text(tc.get("Title"))
     if not description or re.fullmatch(r"CP-[A-Z0-9_-]+-\d{5}(?:\s+.*)?", description.upper()):
         description = safe_text(tc.get("Scenario"), safe_text(tc.get("Description")))
@@ -239,20 +255,14 @@ def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", 
     if not description:
         description = "Caso de prueba"
     description = description.replace("|", "")
-    sequence_match = re.search(r"(\d{5})$", safe_text(case_id))
-    sequence = sequence_match.group(1) if sequence_match else f"{1:05d}"
     return f"CP-{domain_prefix}{suite_prefix}-{sequence} {description}".strip()
 
 
-def normalize_case_id(raw_id, module, index, prefix="CP-AU-", suite_name="", source_content="", hu_text=""):
-    """Normaliza IDs al formato CP-[DOMINIO][SUITE]-#####."""
+def normalize_case_id(raw_id, module, index, prefix="CP-AU-"):
     candidate = safe_text(raw_id)
     if re.fullmatch(r"CP-(?:AU|HO)[A-Z0-9]{1,3}-\d{5}", candidate):
         return candidate
-
-    suite_prefix = _suite_prefix(suite_name)
-    domain_prefix = _domain_prefix(source_content, hu_text, module)
-    return f"CP-{domain_prefix}{suite_prefix}-{index:05d}"
+    return f"{prefix}{index:05d}"
 
 
 def find_coverage(data, tc):
