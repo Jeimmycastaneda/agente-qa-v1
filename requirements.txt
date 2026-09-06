@@ -6,3 +6,4 @@ pypdf
 python-docx
 google-genai
 pytest
+playwright
