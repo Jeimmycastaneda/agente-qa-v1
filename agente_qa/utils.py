@@ -243,7 +243,8 @@ def _domain_prefix(source_content="", hu_text="", module=""):
 def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", module=""):
     """Construye: CP-[DOMINIO][SIGLAS_SUITE]-##### [DESCRIPCIÓN]."""
     suite_prefix = _suite_prefix(suite_name)
-    domain_prefix = _domain_prefix(source_content, hu_text, module)
+    tc_module = safe_text(tc.get("Module")) if isinstance(tc, dict) else ""
+    domain_prefix = _domain_prefix(source_content, hu_text, module or tc_module)
     raw_case_id = safe_text(case_id)
     match = re.search(r"(\d{5})$", raw_case_id)
     sequence = match.group(1) if match else "00001"
