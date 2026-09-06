@@ -258,11 +258,23 @@ def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", 
     return f"CP-{domain_prefix}{suite_prefix}-{sequence} {description}".strip()
 
 
-def normalize_case_id(raw_id, module, index, prefix="CP-AU-"):
+def normalize_case_id(
+    raw_id,
+    module,
+    index,
+    prefix="CP-AU-",
+    suite_name="",
+    source_content="",
+    hu_text="",
+):
+    """Normaliza IDs al formato CP-[DOMINIO][SIGLAS_SUITE]-#####."""
     candidate = safe_text(raw_id)
     if re.fullmatch(r"CP-(?:AU|HO)[A-Z0-9]{1,3}-\d{5}", candidate):
         return candidate
-    return f"{prefix}{index:05d}"
+
+    suite_prefix = _suite_prefix(suite_name)
+    domain_prefix = _domain_prefix(source_content, hu_text, module)
+    return f"CP-{domain_prefix}{suite_prefix}-{index:05d}"
 
 
 def find_coverage(data, tc):
