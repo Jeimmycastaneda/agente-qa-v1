@@ -5,6 +5,7 @@ from agente_qa.integrations.azure_devops import (
     build_description_html,
     build_steps_xml,
 )
+import agente_qa.integrations.azure_runtime as azure_runtime
 
 
 def test_azure_config_is_disabled_by_default(monkeypatch):
@@ -16,6 +17,34 @@ def test_azure_config_is_disabled_by_default(monkeypatch):
     config = AzureDevOpsConfig.from_env()
 
     assert config.enabled is False
+
+
+def test_runtime_azure_config_uses_central_secret_resolver(monkeypatch):
+    values = {
+        "AZURE_DEVOPS_ORG": "org-demo",
+        "AZURE_DEVOPS_PROJECT": "proyecto-demo",
+        "AZURE_DEVOPS_PAT": "pat-demo",
+    }
+    requested = []
+
+    def fake_resolve_secret(name):
+        requested.append(name)
+        return values[name]
+
+    monkeypatch.setattr(azure_runtime, "resolve_secret", fake_resolve_secret)
+
+    config = azure_runtime._az_config()
+
+    assert config == {
+        "org": "org-demo",
+        "project": "proyecto-demo",
+        "pat": "pat-demo",
+    }
+    assert requested == [
+        "AZURE_DEVOPS_ORG",
+        "AZURE_DEVOPS_PROJECT",
+        "AZURE_DEVOPS_PAT",
+    ]
 
 
 def test_build_description_html_preserves_sections_and_removes_pipes():
