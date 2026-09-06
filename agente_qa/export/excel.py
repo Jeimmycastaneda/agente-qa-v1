@@ -83,7 +83,7 @@ def create_excel(data, config_key):
             if general_alerts:
                 alerts = " | ".join(general_alerts)
 
-        area_path = "COTIZADORES WEB\\DESARROLLO"
+        area_path = safe_text(config.get("area_path"), "COTIZADORES WEB\\DESARROLLO")
         assigned_to = safe_text(config.get("assigned_to"))
         state = "Design"
         work_item_type = "Test Case"
@@ -117,8 +117,15 @@ def create_excel(data, config_key):
                 "Title": "",
                 "Description": "",
                 "Test Step": step.get("Step #", step_index),
-                "Step Action": safe_text(step.get("Action"), "Acción no definida"),
-                "Step Expected": safe_text(step.get("Expected value"), "Resultado esperado no definido"),
+                "Step Action": safe_text(
+                    step.get("Action"), step.get("action"), step.get("Step"), "Acción no definida"
+                ),
+                "Step Expected": safe_text(
+                    step.get("Expected value"),
+                    step.get("Expected"),
+                    step.get("expected"),
+                    "Resultado esperado no definido",
+                ),
                 "Area Path": "",
                 "IDPadre": "",
                 "Tipo Origen Proyecto": "",
