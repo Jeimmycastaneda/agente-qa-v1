@@ -212,23 +212,24 @@ def module_token(module, title="", scenario=""):
 
 
 def _suite_prefix(suite_name):
-    """Obtiene las primeras tres siglas/términos de la Suite, sin inventar letras."""
+    """Obtiene hasta tres siglas de Suite sin inventar letras."""
     text = safe_text(suite_name)
     words = re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", text)
     if not words:
         return "GEN"
+    if len(words) == 1:
+        return words[0][:3].upper()
     return "".join(word[0] for word in words)[:3].upper()
 
 
 def _domain_prefix(source_content="", hu_text="", module=""):
-    """Determina AU por defecto; usa HO solo cuando la fuente identifica Hogar."""
+    """Determina AU por defecto y HO solo ante evidencia funcional de Hogar."""
     evidence = " ".join(safe_text(x) for x in (source_content, hu_text, module)).casefold()
-    hogar_terms = ("hogar", "hogares", "vivienda", "viviendas", "home insurance", "home")
-    return "HO" if any(term in evidence for term in hogar_terms) else "AU"
+    return "HO" if re.search(r"\b(?:hogar|hogares|vivienda|viviendas)\b", evidence) else "AU"
 
 
 def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", module=""):
-    """Construye el título normalizado: dominio + primeras tres siglas de Suite + consecutivo + descripción."""
+    """Construye CP-[DOMINIO][SUITE]-##### + descripción."""
     suite_prefix = _suite_prefix(suite_name)
     domain_prefix = _domain_prefix(source_content, hu_text, module)
     description = safe_text(tc.get("Title"))
@@ -238,14 +239,20 @@ def build_case_title(tc, case_id, suite_name="", source_content="", hu_text="", 
     if not description:
         description = "Caso de prueba"
     description = description.replace("|", "")
-    return f"CP-{domain_prefix}{suite_prefix}-{case_id.split('-')[-1]} {description}".strip()
+    sequence_match = re.search(r"(\d{5})$", safe_text(case_id))
+    sequence = sequence_match.group(1) if sequence_match else f"{1:05d}"
+    return f"CP-{domain_prefix}{suite_prefix}-{sequence} {description}".strip()
 
 
-def normalize_case_id(raw_id, module, index, prefix="CP-AU-"):
+def normalize_case_id(raw_id, module, index, prefix="CP-AU-", suite_name="", source_content="", hu_text=""):
+    """Normaliza IDs al formato CP-[DOMINIO][SUITE]-#####."""
     candidate = safe_text(raw_id)
     if re.fullmatch(r"CP-(?:AU|HO)[A-Z0-9]{1,3}-\d{5}", candidate):
         return candidate
-    return f"{prefix}{index:05d}"
+
+    suite_prefix = _suite_prefix(suite_name)
+    domain_prefix = _domain_prefix(source_content, hu_text, module)
+    return f"CP-{domain_prefix}{suite_prefix}-{index:05d}"
 
 
 def find_coverage(data, tc):
