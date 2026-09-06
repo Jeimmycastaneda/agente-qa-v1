@@ -23,7 +23,24 @@ def create_excel(data, config_key):
     for idx, tc in enumerate(cases, start=1):
         module = safe_text(tc.get("Module"), "GENERAL")
         raw_case_id = safe_text(tc.get("ID"), f"CP-AU-{idx:05d}")
-        title = build_case_title(tc, raw_case_id, suite_name=suite_name, module=module)
+        # La numeración exportada debe ser determinista por Suite y no depender
+        # de IDs inconsistentes o duplicados devueltos por el modelo.
+        normalized_id = normalize_case_id(
+            raw_case_id,
+            module=module,
+            index=idx,
+            suite_name=suite_name,
+            source_content=safe_text(data.get("SOURCE_CONTENT"), data.get("SOURCE")),
+            hu_text=safe_text(data.get("HU_TEXT")),
+        )
+        title = build_case_title(
+            tc,
+            normalized_id,
+            suite_name=suite_name,
+            source_content=safe_text(data.get("SOURCE_CONTENT"), data.get("SOURCE")),
+            hu_text=safe_text(data.get("HU_TEXT")),
+            module=module,
+        )
         case_id = title.split(" ", 1)[0]
 
         raw_description = safe_text(tc.get("Description"), safe_text(tc.get("Scenario")))
