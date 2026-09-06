@@ -2,86 +2,29 @@
 
 Agente especializado en analizar Historias de Usuario (HU), Casos de Uso, Criterios de Aceptación y reglas funcionales para generar **Casos de Prueba (CP) funcionales en versión DRAFT**, con trazabilidad y validaciones orientadas a QA.
 
-> **Estado:** MVP / evolución activa.
+> **Estado:** estabilización en `organizar-main`. No se debe pasar a `main` hasta completar las pruebas de regresión.
 
-## 🎯 Objetivo
+## Objetivo
 
-El Agente QA convierte documentación funcional en casos de prueba estructurados, revisables y preparados para su gestión en Azure DevOps, evitando inventar información que no esté sustentada por la fuente.
+Convertir documentación funcional en casos de prueba estructurados, revisables y preparados para gestión en Azure DevOps, sin inventar información que no esté sustentada por la fuente.
 
-## 🧠 Componentes principales
+## Arquitectura
 
-### Streamlit
+- **Gemini:** cerebro de IA.
+- **Streamlit:** interfaz.
+- **Motor QA:** generación, normalización, validación y cobertura.
+- **Exportación:** Excel compatible con el modelo aprobado y PDF.
+- **Azure DevOps:** consulta de referencia, preview y publicación explícita.
 
-Es la interfaz de la aplicación. Permite cargar documentación, ejecutar la generación, revisar los CP y trabajar con las salidas generadas.
-
-### Gemini
-
-Es el **cerebro de IA** del agente. Analiza la documentación siguiendo el prompt QA y genera la estructura de Casos de Prueba.
-
-### Motor QA
-
-La lógica funcional debe garantizar, entre otras reglas:
-
-- usar únicamente información disponible en la documentación;
-- **no inventar** datos funcionales;
-- generar alertas cuando falte información;
-- conservar contradicciones de la fuente y alertarlas;
-- mantener trazabilidad entre HU, CU, criterios y CP;
-- generar como mínimo **1 CP por Caso de Uso**;
-- mantener **1 Caso de Uso relacionado por CP**;
-- cuando una misma funcionalidad tenga dos o más tipos de cotización con reglas, cálculos, condiciones o comportamientos diferenciados, generar **CP independientes por cada tipo** y validar cada escenario de forma completa.
-
-## 🧪 Estructura de un Caso de Prueba
-
-Los CP utilizan la estructura funcional definida para el proyecto, incluyendo:
-
-- ID del CP;
-- Producto;
-- Módulo;
-- Descripción;
-- Resultado esperado de la prueba;
-- Precondiciones;
-- Caso de uso relacionado;
-- Steps con **Steps / Action / Expected**;
-- alertas y trazabilidad cuando corresponda.
-
-El formato de identificación utilizado para Autos Colectivos sigue el patrón:
-
-```text
-CP-AC-<MÓDULO>-#####
-```
-
-## 📊 Exportaciones
-
-La aplicación contempla generación de:
-
-- **Excel** compatible con el flujo de importación de Azure DevOps y con la **Matriz QA** aprobada.
-- **PDF** para revisión y consulta de los casos generados.
-
-Se debe conservar el modelo aprobado de columnas y títulos; cualquier cambio estructural debe validarse antes de incorporarse.
-
-## ☁️ Azure DevOps
-
-La integración contempla trabajar con:
-
-- Test Plans;
-- Suites;
-- Test Cases;
-- Parent asociado a la Suite seleccionada;
-- Related Work asociado al Caso de Uso;
-- Steps nativos de Azure DevOps;
-- descripción estructurada.
-
-La integración debe permanecer protegida y **deshabilitada por defecto** hasta configurar las credenciales necesarias.
-
-## 📁 Estructura actual del repositorio
-
-La rama `organizar-main` contiene la aplicación reorganizada por responsabilidades, conservando la funcionalidad e interfaz aprobadas de `main` y utilizando `mao-dev-branch` únicamente como referencia estructural.
+El punto de entrada es `app.py`; la lógica se encuentra separada por responsabilidades dentro de `agente_qa/`.
 
 ```text
 Agente-QA-V1/
-│
 ├── app.py
+├── prompt_qa.txt
+├── requirements.txt
+├── config/
+│   └── qa_config.py
 ├── agente_qa/
 │   ├── config.py
 │   ├── defaults.py
@@ -94,113 +37,153 @@ Agente-QA-V1/
 │   ├── settings.py
 │   ├── utils.py
 │   ├── validation.py
-│   ├── providers/
-│   │   ├── base.py
-│   │   └── gemini.py
 │   ├── export/
 │   │   ├── excel.py
 │   │   └── pdf.py
 │   ├── integrations/
-│   │   ├── azure_devops.py
-│   │   └── azure_runtime.py
+│   │   ├── azure_runtime.py
+│   │   └── azure_devops.py
+│   ├── providers/
+│   │   ├── base.py
+│   │   └── gemini.py
 │   └── ui/
 │       ├── azure_section.py
 │       ├── coverage.py
 │       ├── document.py
 │       ├── editor.py
-│       ├── generation.py
 │       ├── generation_section.py
 │       ├── prompt_editor.py
 │       ├── results.py
-│       ├── sidebar.py
-│       ├── state.py
-│       └── upload.py
-├── config/
-├── docs/
-├── prompts/
-├── tests/
-├── prompt_qa.txt
-├── requirements.txt
-└── README.md
+│       └── state.py
+└── tests/
+    ├── test_azure_devops.py
+    ├── test_utils.py
+    └── test_validation.py
 ```
 
-Los antiguos módulos duplicados de Azure y editor que existían en la raíz fueron eliminados. La implementación canónica se encuentra ahora en `agente_qa/integrations/` y `agente_qa/ui/`.
+`agente_qa/integrations/azure_runtime.py` es la implementación canónica de Azure. `azure_devops.py` únicamente conserva compatibilidad con nombres históricos; no debe contener una segunda implementación HTTP.
 
-## 🏗️ Arquitectura y ramas
+## Reglas funcionales del agente
 
-La estrategia de trabajo es:
+1. Usar únicamente información disponible en HU, CU, criterios, reglas, mockups, notas, restricciones, dependencias y datos técnicos proporcionados.
+2. No inventar información funcional.
+3. Cuando falte información, generar la alerta correspondiente.
+4. Si un mensaje no está definido en la fuente, usar exactamente: `Mensaje no definido en la fuente. Validar con equipo funcional.`
+5. Conservar contradicciones de la fuente y generar alerta.
+6. Mantener trazabilidad entre fuente y CP.
+7. Generar como mínimo **1 CP por Caso de Uso**.
+8. Un CP debe tener **un solo Caso de Uso relacionado**.
+9. Si existen tipos de cotización con reglas o comportamientos diferentes, generar CP independientes por tipo.
+10. El título del CP debe iniciar con verbo en infinitivo, ser breve, claro y autosuficiente; la navegación pertenece a los Steps.
+
+## Estructura del CP
+
+Cada CP contempla:
+
+- ID;
+- Product;
+- Module;
+- Description;
+- Expected Result;
+- Preconditions;
+- Related Use Case;
+- Steps con Action y Expected;
+- Coverage, Validation Method, Alerts y trazabilidad cuando corresponda.
+
+Para Autos Colectivos, el identificador sigue el patrón:
+
+```text
+CP-AC-<MODULE>-#####
+```
+
+## Excel y Matriz QA
+
+Se debe conservar exactamente el modelo aprobado de columnas y títulos para Azure DevOps. No se agregan ni cambian columnas sin aprobación.
+
+La configuración de Autos Colectivos utiliza `COTIZADORES WEB\\DESARROLLO` como Area Path y mantiene la hoja de Matriz QA.
+
+## Azure DevOps
+
+La integración debe seguir estas reglas:
+
+- Las consultas de Test Plans, Suites y Test Cases son de lectura.
+- La Suite seleccionada puede analizarse de forma conjunta para obtener referencia estructural.
+- Azure es **referencia estructural**, no fuente de reglas funcionales.
+- La HU continúa siendo la fuente funcional del nuevo CP.
+- La generación de preview no publica cambios.
+- La creación en Azure requiere selección explícita, revisión y confirmación.
+- Se valida la existencia de títulos duplicados antes de crear.
+- `IDPadre` no se sustituye automáticamente por Test Plan o Suite.
+- Las credenciales no se almacenan en el código fuente.
+
+## Seguridad y secretos
+
+Los secretos se resuelven desde configuración segura de Streamlit o variables de entorno mediante `agente_qa/secrets.py`.
+
+Nunca se debe subir `.streamlit/secrets.toml`, PAT, API keys u otras credenciales al repositorio.
+
+## Pruebas y criterio de estabilidad
+
+Las pruebas automatizadas se ejecutan con:
+
+```bash
+python -m pytest -q
+```
+
+También existe validación automática en GitHub Actions para `organizar-main`.
+
+Antes de considerar estable la rama se debe verificar:
+
+- compilación de todos los módulos Python;
+- pruebas automatizadas en verde;
+- generación de CP y cobertura CU;
+- exportación Excel y Matriz QA;
+- exportación PDF;
+- edición de CP;
+- preview basado en referencia Azure;
+- publicación Azure solo con confirmación explícita;
+- ausencia de secretos o archivos generados en Git;
+- ejecución funcional desde `streamlit run app.py`.
+
+## Ramas
 
 | Rama | Propósito |
 |---|---|
-| `main` | Fuente funcional y visual aprobada |
-| `mao-dev-branch` | Referencia exclusiva para arquitectura/estructura |
-| `organizar-main` | Única rama donde se realiza la reorganización y los cambios de esta migración |
+| `main` | Rama estable/aprobada. No se modifica durante la estabilización. |
+| `mao-dev-branch` | Solo referencia estructural. No se usa como fuente funcional. |
+| `organizar-main` | Única rama donde se realizan los cambios y pruebas de esta reorganización. |
 
-**Regla:** `main` y `mao-dev-branch` no se modifican durante esta reorganización.
+**Regla de trabajo:** toda corrección y validación se realiza primero en `organizar-main`. Solo cuando la rama esté estable, probada y revisada se podrá considerar un futuro merge a `main`.
 
-## 🚀 Instalación local
-
-Clonar el repositorio y crear un entorno virtual:
+## Instalación local
 
 ```bash
 python -m venv .venv
 ```
 
-Activar el entorno en Windows:
+Windows:
 
-```bash
+```powershell
 .venv\Scripts\activate
 ```
-
-Instalar dependencias:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## ▶️ Ejecutar la aplicación
-
-Desde la raíz del proyecto:
+## Ejecución
 
 ```bash
 streamlit run app.py
 ```
 
-La aplicación utiliza Streamlit como interfaz web local.
+## Flujo de estabilización
 
-## 🔐 Variables / secretos
-
-Las credenciales y secretos **no deben guardarse en el repositorio**.
-
-Para Gemini se utiliza la clave de API mediante configuración segura de Streamlit o variable de entorno.
-
-Para Azure DevOps se utilizan credenciales mediante configuración segura.
-
-El conector Azure debe permanecer deshabilitado hasta que exista configuración válida.
-
-## 🛡️ Principios del proyecto
-
-1. **No inventar información funcional.**
-2. **Trazabilidad completa.**
-3. **Alertar información faltante o contradictoria.**
-4. **Conservar la estructura aprobada de Excel/PDF.**
-5. **No modificar títulos de columnas sin aprobación.**
-6. **Separar la lógica QA de la interfaz.**
-7. **Mantener Gemini como cerebro del agente.**
-8. **Mantener Streamlit como interfaz.**
-9. **Proteger las ramas estables.**
-10. **Probar la nueva arquitectura antes de hacer merge.**
-
-## 📚 Próximos pasos
-
-- Validar generación y cobertura de CP.
-- Validar Excel y Matriz QA.
-- Validar PDF.
-- Validar editor.
-- Validar conexión con Azure DevOps cuando corresponda.
-- Validar Parent/Suite y Related Work/CU.
-- Ejecutar pruebas de regresión antes de cualquier merge a `main`.
-
----
-
-**Agente QA — proyecto en evolución**
+1. Estabilizar la arquitectura modular.
+2. Unificar implementaciones duplicadas.
+3. Ejecutar pruebas automatizadas y corregir regresiones.
+4. Validar generación, cobertura y exportaciones.
+5. Validar Azure en modo lectura y posteriormente publicación controlada.
+6. Ejecutar prueba funcional completa desde Streamlit.
+7. Revisar cambios finales de `organizar-main`.
+8. **Solo después de todo lo anterior**, evaluar el merge a `main`.
