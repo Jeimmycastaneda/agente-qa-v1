@@ -33,26 +33,17 @@ from agente_qa.integrations.azure_runtime import (
     list_test_suites,
     test_connection,
 )
+from agente_qa.integrations.cotizador_browser import CotizadorBrowserError, inspect_cotizador
 from config.qa_config import EXCEL_CONFIGS
-
 
 FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
-st.set_page_config(
-    page_title=f"Agente QA {APP_VERSION}",
-    layout="wide",
-)
-
+st.set_page_config(page_title=f"Agente QA {APP_VERSION}", layout="wide")
 init_session_state()
 
 st.title(f"🤖 Agente QA {APP_VERSION} — Generador de Casos de Prueba")
-st.caption(
-    "VERSION PREVIA — DRAFT | PDF / DOCX / TXT / MD → análisis QA → Excel + PDF"
-)
+st.caption("VERSION PREVIA — DRAFT | PDF / DOCX / TXT / MD → análisis QA → Excel + PDF")
 
-# IMPORTANTE: en main toda esta sección vive dentro de st.sidebar.
-# El módulo conserva el contenido aprobado, pero app.py debe mantener su
-# ubicación visual en la barra lateral.
 with st.sidebar:
     sidebar_config = render_azure_sidebar(
         fallback_models=FALLBACK_MODELS,
@@ -71,7 +62,36 @@ with st.sidebar:
         source_name=st.session_state.get("source_name", ""),
     )
 
+    st.divider()
+    st.subheader("🌐 Conectar cotizador web")
+    st.caption("Permite iniciar sesión y obtener evidencia de las pantallas, botones y enlaces visibles para construir pasos. Las credenciales se usan solo durante la sesión y no se guardan en disco.")
+    cotizador_url = st.text_input("🔗 URL del cotizador", key="cotizador_url", placeholder="https://...")
+    cotizador_user = st.text_input("👤 Usuario", key="cotizador_user")
+    cotizador_password = st.text_input("🔑 Contraseña", type="password", key="cotizador_password")
+    cotizador_login_selector = st.text_input("Selector del botón de ingreso (opcional)", key="cotizador_login_selector", placeholder="button[type='submit']")
+    if st.button("🔎 Conectar y analizar navegación", key="cotizador_inspect"):
+        try:
+            with st.spinner("Iniciando sesión y analizando navegación visible..."):
+                inspection = inspect_cotizador(cotizador_url, cotizador_user, cotizador_password, cotizador_login_selector)
+            st.session_state.cotizador_source_text = inspection.source_text
+            st.session_state.cotizador_pages = inspection.pages
+            st.success(f"✅ Cotizador conectado. Se identificaron {len(inspection.pages)} página(s).")
+        except CotizadorBrowserError as exc:
+            st.error(f"❌ {exc}")
+        except Exception as exc:
+            st.error(f"❌ Error inesperado al conectar el cotizador: {exc}")
+    if st.session_state.get("cotizador_pages"):
+        st.caption("Páginas analizadas:")
+        for page_url in st.session_state.cotizador_pages:
+            st.code(page_url)
+
 source_text = render_document_section(extract_source)
+
+# La evidencia del cotizador se agrega como contexto técnico de navegación.
+# Gemini debe seguir usando la HU como fuente funcional y no inventar reglas.
+cotizador_source = st.session_state.get("cotizador_source_text", "")
+if cotizador_source:
+    source_text = f"{source_text}\n\n{cotizador_source}".strip()
 
 render_generation_section(
     generate_qa_data=generate_qa_data,
@@ -81,9 +101,7 @@ render_generation_section(
     selected_model=sidebar_config["selected_model"],
     max_retries=sidebar_config["max_retries"],
     wait_time=sidebar_config["wait_time"],
-    coverage_gate_or_stop=lambda data: coverage_gate_or_stop(
-        calculate_cu_coverage, render_cu_coverage, data
-    ),
+    coverage_gate_or_stop=lambda data: coverage_gate_or_stop(calculate_cu_coverage, render_cu_coverage, data),
     create_excel=create_excel,
     create_pdf=create_pdf,
     selected_config=sidebar_config["selected_config"],
@@ -98,9 +116,7 @@ render_results_section(
     render_editor=render_azure_style_editor,
     create_excel=create_excel,
     create_pdf=create_pdf,
-    coverage_gate_or_stop=lambda data: coverage_gate_or_stop(
-        calculate_cu_coverage, render_cu_coverage, data
-    ),
+    coverage_gate_or_stop=lambda data: coverage_gate_or_stop(calculate_cu_coverage, render_cu_coverage, data),
 )
 
 result = st.session_state.get("result_json")
