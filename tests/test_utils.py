@@ -37,14 +37,24 @@ def test_build_case_title_uses_ho_when_hogar_is_identified():
     assert build_case_title(tc, "CP-AU-00001", suite_name="DRC", module="Hogar") == "CP-HODRC-00001 Validar cobertura de vivienda"
 
 
+def test_build_case_title_does_not_switch_to_ho_for_incidental_text():
+    tc = {"Title": "Validar selección del hogar comercial"}
+    assert build_case_title(tc, "CP-AU-00001", suite_name="DRC", module="Autos") == "CP-AUDRC-00001 Validar selección del hogar comercial"
+
+
 def test_normalize_case_id_keeps_supported_id():
     valid = "CP-AUDRC-00012"
     assert normalize_case_id(valid, "Cotizador Autos Colectivos", 99) == valid
 
 
-def test_normalize_case_id_generates_legacy_default_format_when_no_suite_is_provided():
+def test_normalize_case_id_generates_id_with_default_suite_token():
     generated = normalize_case_id("", "Cotizador Autos Colectivos", 7)
-    assert generated == "CP-AU-00007"
+    assert generated == "CP-AUGEN-00007"
+
+
+def test_normalize_case_id_generates_id_with_suite():
+    generated = normalize_case_id("", "Cotizador Autos Colectivos", 7, suite_name="DRC")
+    assert generated == "CP-AUDRC-00007"
 
 
 def test_normalize_coverage_and_validation_method():
