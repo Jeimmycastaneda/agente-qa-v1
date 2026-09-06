@@ -62,6 +62,24 @@ def test_excel_uses_selected_suite_name_for_case_id():
     assert rows[0][3].count("|") == 0
 
 
+def test_excel_uses_sequential_ids_when_model_returns_duplicate_ids():
+    data = sample_data()
+    data["SUITE_NAME"] = "DRC"
+    data["TEST_CASES"] = [
+        dict(data["TEST_CASES"][0]),
+        {**data["TEST_CASES"][0], "Title": "Validar segunda consulta", "Related Use Case": "CU-326"},
+    ]
+    data["TEST_CASES"][0]["ID"] = "CP-AU-99999"
+    data["TEST_CASES"][1]["ID"] = "CP-AU-99999"
+
+    content = create_excel(data, "Autos Colectivos")
+    workbook = load_workbook(io.BytesIO(content), data_only=True)
+    rows = list(workbook["Azure Import"].iter_rows(min_row=2, values_only=True))
+
+    assert rows[0][3].startswith("CP-AUDRC-00001 ")
+    assert rows[3][3].startswith("CP-AUDRC-00002 ")
+
+
 def test_excel_uses_ho_when_suite_data_identifies_hogar():
     data = sample_data()
     data["SUITE_NAME"] = "DRC"
