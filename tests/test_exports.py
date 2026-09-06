@@ -54,6 +54,17 @@ def test_pdf_export_generates_readable_pdf_bytes():
     assert len(content) > 1000
 
 
+def test_pdf_preserves_expected_when_step_uses_either_key():
+    data = sample_data()
+    data["TEST_CASES"][0]["Steps"] = [
+        {"Step #": 1, "Action": "Paso con Expected", "Expected": "Resultado A"},
+        {"Step #": 2, "Action": "Paso con Expected value", "Expected value": "Resultado B"},
+    ]
+    content = create_pdf(data, "Autos Colectivos", "HU-TEST")
+    assert b"Resultado A" in content
+    assert b"Resultado B" in content
+
+
 def test_runtime_steps_xml_uses_action_and_expected_fields():
     result = _azure_steps_xml(sample_data()["TEST_CASES"][0]["Steps"])
     root = ET.fromstring(result)
