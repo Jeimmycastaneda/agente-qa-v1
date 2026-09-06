@@ -1,37 +1,40 @@
 """Sección de generación QA, conservando el flujo visual de la aplicación aprobada."""
 from __future__ import annotations
 
-import re
-
 import streamlit as st
 
-from agente_qa.utils import build_case_title, safe_text
+from agente_qa.utils import build_case_title, normalize_case_id, safe_text
 
 
 def _suite_options():
     """Obtiene las Suites consultadas para que la selección controle la generación."""
     suites = st.session_state.get("azure_reference_suites", []) or []
-    valid = [s for s in suites if safe_text(s.get("name"))]
-    return valid
+    return [s for s in suites if safe_text(s.get("name"))]
 
 
 def _apply_suite_to_result(result, suite_name):
-    """Asigna la Suite seleccionada y normaliza ID/Título antes de exportar."""
-    if not suite_name:
-        return result
-
+    """Fija Suite, dominio y numeración única antes de guardar los CP en sesión."""
     data = dict(result)
     cases = []
+    source_content = safe_text(data.get("SOURCE_CONTENT"), data.get("SOURCE"))
+    hu_text = safe_text(data.get("HU_TEXT"))
+
     for index, original in enumerate(data.get("TEST_CASES", []) or [], start=1):
         tc = dict(original)
-        raw_id = safe_text(tc.get("ID"), f"CP-AU-{index:05d}")
-        title = build_case_title(tc, raw_id, suite_name=suite_name, module=safe_text(tc.get("Module")))
-        match = re.search(r"^(CP-[A-Z0-9]{2,5}-\d{5})\s", title)
-        if match:
-            tc["ID"] = match.group(1)
+        module = safe_text(tc.get("Module"), "GENERAL")
+        case_id = normalize_case_id(
+            tc.get("ID"), module, index, suite_name=suite_name,
+            source_content=source_content, hu_text=hu_text,
+        )
+        title = build_case_title(
+            tc, case_id, suite_name=suite_name,
+            source_content=source_content, hu_text=hu_text, module=module,
+        )
+        tc["ID"] = case_id
         tc["Title"] = title.split(" ", 1)[1] if " " in title else title
         tc["SUITE_NAME"] = suite_name
         cases.append(tc)
+
     data["TEST_CASES"] = cases
     data["SUITE_NAME"] = suite_name
     return data
