@@ -29,8 +29,11 @@ SCHEMA = {
         "USE_CASES": {
             "type": "array",
             "items": {"type": "object", "properties": {
-                "ID": {"type": "string"}, "Name": {"type": "string"}
-            }, "required": ["ID", "Name"]}
+                "ID": {"type": "string"}, "Name": {"type": "string"},
+                "INTERFACE_STATUS": {"type": "string", "enum": ["UI_VERIFICABLE", "NO_UI", "AMBIGUA"]},
+                "INTERFACE_EVIDENCE": {"type": "string"},
+                "CP_ELIGIBLE": {"type": "boolean"}
+            }, "required": ["ID", "Name", "INTERFACE_STATUS", "INTERFACE_EVIDENCE", "CP_ELIGIBLE"]}
         },
         "TEST_CASES": {
             "type": "array",
@@ -110,6 +113,21 @@ def validate_qa_structure(data):
         data["ALERTS"] = []
     if not isinstance(data["COVERAGE"], list):
         data["COVERAGE"] = []
+
+    allowed_status = {"UI_VERIFICABLE", "NO_UI", "AMBIGUA"}
+    for cu in data["USE_CASES"]:
+        status = cu.get("INTERFACE_STATUS")
+        if status not in allowed_status:
+            raise ValueError(f"CU {cu.get('ID', '')}: INTERFACE_STATUS inválido: {status}")
+        eligible = cu.get("CP_ELIGIBLE")
+        expected = status == "UI_VERIFICABLE"
+        if eligible is not expected:
+            raise ValueError(
+                f"CU {cu.get('ID', '')}: CP_ELIGIBLE no coincide con INTERFACE_STATUS."
+            )
+        if not isinstance(cu.get("INTERFACE_EVIDENCE"), str):
+            raise ValueError(f"CU {cu.get('ID', '')}: INTERFACE_EVIDENCE debe ser texto.")
+
     return data
 
 
