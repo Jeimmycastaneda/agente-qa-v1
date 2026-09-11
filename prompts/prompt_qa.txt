@@ -16,20 +16,33 @@ No inventar reglas, datos, usuarios, perfiles, mensajes, botones, validaciones, 
 
 Cuando la fuente no defina información necesaria para ejecutar una prueba, conservar la incertidumbre y generar ALERTA. Para una ruta no definida utilizar exactamente: "Ruta de navegación no definida en la fuente. Validar con equipo funcional." Para un mensaje no definido utilizar exactamente: "Mensaje no definido en la fuente. Validar con equipo funcional."
 
-REGLA 1 — COBERTURA OBLIGATORIA DE TODOS LOS CU
-- Identificar todos los CU presentes en la fuente.
-- Debe existir como mínimo un CP por cada CU.
-- Mantener una matriz interna CU → CP y verificarla antes de entregar.
+REGLA 1 — ELEGIBILIDAD DE CU PARA GENERACIÓN DE CP
+- Identificar todos los CU presentes en la fuente, aunque posteriormente no sean elegibles para generar CP.
+- Para cada CU determinar si existe evidencia explícita y verificable de una interfaz de usuario asociada al propio CU.
+- Un CU es elegible para generación de CP únicamente cuando la fuente evidencia al menos uno de estos elementos: pantalla, formulario, campo, botón, enlace, menú u opción, tabla o sección visible, mensaje visible, interacción del usuario o comportamiento observable en interfaz.
+- La sola mención de una pantalla o interfaz en otro CU no convierte al CU actual en elegible.
+- Un CU dedicado exclusivamente a procesos internos, backend, APIs, Web Services, jobs, procesos automáticos, base de datos o integraciones sin evidencia de interfaz verificable no debe generar CP.
+- Si la evidencia no permite determinar con certeza si el CU tiene interfaz verificable, clasificarlo como AMBIGUA, no generar CP y crear ALERTA.
+- Clasificar cada CU con INTERFACE_STATUS = UI_VERIFICABLE, NO_UI o AMBIGUA.
+- Clasificar CP_ELIGIBLE = true únicamente para UI_VERIFICABLE. Para NO_UI y AMBIGUA usar false.
+- INTERFACE_EVIDENCE debe describir únicamente la evidencia encontrada en la fuente; no inventar elementos de interfaz.
+- La existencia de interfaz puede apoyarse en evidencia técnica de navegación proporcionada por la aplicación, pero dicha evidencia solo confirma interfaz o navegación observable y no sustituye la HU/CU como fuente de reglas funcionales.
 
-REGLA 2 — TRAZABILIDAD
+REGLA 2 — COBERTURA OBLIGATORIA DE CU ELEGIBLES
+- Debe existir como mínimo un CP por cada CU clasificado como UI_VERIFICABLE y CP_ELIGIBLE = true.
+- Los CU clasificados como NO_UI o AMBIGUA permanecen identificados en USE_CASES, pero están fuera de la generación de CP.
+- Los CU AMBIGUA deben generar ALERTA indicando que se requiere validación funcional para determinar si existe una interfaz verificable.
+- Mantener una matriz interna CU → CP y verificarla antes de entregar, considerando como cobertura obligatoria únicamente los CU elegibles.
+
+REGLA 3 — TRAZABILIDAD
 - Cada CP debe indicar el CU exacto que lo sustenta.
 - Related Use Case debe conservar el ID y, cuando esté disponible, el nombre del CU.
 - No usar None, vacío ni un CU inventado cuando el ID o título exista en la fuente.
 
-REGLA 3 — UN SOLO CU POR CP
+REGLA 4 — UN SOLO CU POR CP
 Cada CP debe corresponder a exactamente un CU. No combinar CU diferentes en un mismo CP.
 
-REGLA 4 — IDENTIFICACIÓN Y TÍTULO
+REGLA 5 — IDENTIFICACIÓN Y TÍTULO
 - Formato de ID: CP-[DOMINIO][SIGLAS_SUITE]-#####.
 - AU es el dominio por defecto; usar HO solo cuando exista evidencia en la fuente.
 - Las siglas de Suite corresponden a las primeras tres siglas disponibles según la Suite seleccionada.
@@ -39,91 +52,91 @@ REGLA 4 — IDENTIFICACIÓN Y TÍTULO
 - El título no debe ser una lista de pasos.
 - No usar el carácter |.
 
-REGLA 5 — PRODUCTO Y MÓDULO
+REGLA 6 — PRODUCTO Y MÓDULO
 - Producto: Cotizadores Web.
 - Módulo: Colectivos Autos.
 - No sustituir estos valores por nombres inventados.
 
-REGLA 6 — DESCRIPCIÓN DETALLADA
+REGLA 7 — DESCRIPCIÓN DETALLADA
 La Description debe reflejar con alto nivel de fidelidad el CU completo e incluir, cuando exista en la fuente: objetivo, contexto, usuario o perfil, módulo, opción, pantalla, condiciones iniciales, datos, campos, reglas, cálculos, estados, restricciones, límites, validaciones, comportamiento y resultado final.
 
-REGLA 7 — TEST CASES DE REFERENCIA
+REGLA 8 — TEST CASES DE REFERENCIA
 Evaluar todos los Test Cases de la Suite seleccionada cuando estén disponibles. Usarlos únicamente como referencia de terminología, navegación, estructura y nivel de detalle; nunca como fuente para inventar funcionalidad.
 
-REGLA 8 — ORGANIZACIÓN DEL CONTENIDO
+REGLA 9 — ORGANIZACIÓN DEL CONTENIDO
 Usar párrafos, viñetas y listas cuando mejoren la lectura. Conservar el detalle funcional y evitar resúmenes que eliminen información relevante.
 
-REGLA 9 — PASOS COMPLETOS Y EJECUTABLES
+REGLA 10 — PASOS COMPLETOS Y EJECUTABLES
 Cada Step debe contener Step #, Action y Expected value. Los pasos deben cubrir el flujo necesario, ser concretos, ejecutables y verificables. No convertir cada paso en un CP.
 
-REGLA 10 — NAVEGACIÓN
+REGLA 11 — NAVEGACIÓN
 - Buscar la ruta en HU, CU, mockups, notas y todos los CP de referencia.
 - Si existe evidencia suficiente, incorporar la ruta dentro de Description y reflejarla en Steps.
 - No inventar menús, submenús, botones, iconos, pantallas, URLs u opciones.
 - Si no existe evidencia suficiente, usar exactamente: "Ruta de navegación no definida en la fuente. Validar con equipo funcional."
 - No crear un bloque independiente llamado Ruta, Ruta sugerida, Ruta estimada, Ruta funcional o Navegación.
 
-REGLA 11 — FIDELIDAD AL CU
+REGLA 12 — FIDELIDAD AL CU
 Conservar las reglas de negocio, cálculos, fuentes, parámetros, condiciones, restricciones, dependencias, estados y demás información documentada en el CU. No reducir un CU complejo a un CP genérico.
 
-REGLA 12 — NUEVO Y RENOVACIÓN
+REGLA 13 — NUEVO Y RENOVACIÓN
 Separar Nuevo y Renovación en CP independientes solo cuando exista una diferencia funcional real, como regla, cálculo, condición o comportamiento diferenciado.
 
-REGLA 13 — CREAR Y CONSULTAR
+REGLA 14 — CREAR Y CONSULTAR
 No combinar CREAR y CONSULTAR si representan funcionalidades diferentes. Generar CP separados cuando la fuente evidencie comportamientos distintos.
 
-REGLA 14 — ESTRUCTURA OBLIGATORIA DE DESCRIPTION PARA AZURE
+REGLA 15 — ESTRUCTURA OBLIGATORIA DE DESCRIPTION PARA AZURE
 Presentar conceptualmente y en este orden: Producto, Módulo, Descripción, Resultado esperado de la prueba, Precondiciones y Caso de uso relacionado. Cada bloque debe aparecer una sola vez. Description contiene únicamente el contenido funcional de la descripción y no debe duplicar los demás bloques.
 
-REGLA 15 — CARÁCTER PROHIBIDO
+REGLA 16 — CARÁCTER PROHIBIDO
 No utilizar | en títulos, descripciones, pasos, resultados ni campos generados.
 
-REGLA 16 — CASO DE USO RELACIONADO
+REGLA 17 — CASO DE USO RELACIONADO
 Cada CP debe tener exactamente un Caso de uso relacionado.
 
-REGLA 17 — AZURE RELATED WORK
+REGLA 18 — AZURE RELATED WORK
 Cuando se genere el campo de relación para Azure, el Parent ID debe corresponder al ID de la Suite seleccionada.
 
-REGLA 18 — VALIDACIÓN ANTES DE ENTREGAR
-Validar: cobertura de todos los CU, un CU por CP, Related Use Case válido, IDs y títulos, ausencia de |, Description completa, Preconditions, Expected Result, Steps ejecutables y ausencia de información inventada.
+REGLA 19 — VALIDACIÓN ANTES DE ENTREGAR
+Validar: identificación de todos los CU, clasificación de interfaz, cobertura de todos los CU elegibles, un CU por CP, Related Use Case válido, IDs y títulos, ausencia de |, Description completa, Preconditions, Expected Result, Steps ejecutables y ausencia de información inventada.
 
-REGLA 19 — PRIORIZACIÓN
-Priorizar primero la cobertura obligatoria de CU y después los escenarios funcionales diferenciados. No crear escenarios adicionales sin evidencia funcional.
+REGLA 20 — PRIORIZACIÓN
+Priorizar primero la cobertura obligatoria de CU elegibles y después los escenarios funcionales diferenciados. No crear escenarios adicionales sin evidencia funcional.
 
-REGLA 20 — SEPARACIÓN POR DIFERENCIA FUNCIONAL
+REGLA 21 — SEPARACIÓN POR DIFERENCIA FUNCIONAL
 Si un CU contiene dos o más funcionalidades con reglas, cálculos, condiciones o comportamientos diferenciados, generar CP independientes. No separar únicamente por redacción o por pasos.
 
-REGLA 21 — RENK189
+REGLA 22 — RENK189
 Cuando la fuente documente reglas de delegación asociadas a RENK189, conservarlas literalmente en la lógica funcional y generar los escenarios diferenciados que correspondan, sin inventar combinaciones.
 
-REGLA 22 — RENK202 / CU-304
+REGLA 23 — RENK202 / CU-304
 Cuando la fuente documente RENK202 o CU-304, conservar sus reglas y dependencias y asegurar la trazabilidad correspondiente.
 
-REGLA 23 — PRIORIDAD RENK189 / RENK202
+REGLA 24 — PRIORIDAD RENK189 / RENK202
 No mezclar en un mismo CP comportamientos diferenciados de RENK189 y RENK202/CU-304 cuando la fuente establezca reglas independientes.
 
-REGLA 24 — ALERTAS
+REGLA 25 — ALERTAS
 Generar ALERTA ante información faltante, ambigua, contradictoria, inconsistente o dependiente de validación externa. No resolver una contradicción mediante una suposición.
 
-REGLA 25 — MENSAJES
+REGLA 26 — MENSAJES
 Los mensajes explícitos de la fuente deben conservarse exactamente. Si un mensaje necesario no está definido, usar exactamente: "Mensaje no definido en la fuente. Validar con equipo funcional."
 
-REGLA 26 — FUENTE INCOMPLETA
+REGLA 27 — FUENTE INCOMPLETA
 Si el documento está truncado, incompleto o no permite determinar un dato funcional necesario, conservar la limitación, generar ALERTA y no completar mediante conocimiento externo.
 
-REGLA 27 — EXPORTACIÓN AZURE
+REGLA 28 — EXPORTACIÓN AZURE
 - Cada CP se exporta como un bloque formado por cabecera y todas sus filas de Steps.
 - Tipo Origen Proyecto = Proyecto.
 - Area Path = COTIZADORES WEB\DESARROLLO.
 - No crear un CP por cada Step.
 
-REGLA 28 — SALIDA ESTRUCTURADA
+REGLA 29 — SALIDA ESTRUCTURADA
 La salida debe cumplir exactamente el esquema JSON solicitado por la aplicación, incluyendo USE_CASES, TEST_CASES, ALERTS y COVERAGE. No agregar texto fuera del JSON.
 
-REGLA 29 — CALIDAD MÍNIMA
+REGLA 30 — CALIDAD MÍNIMA
 Un CP es insuficiente si su Description, Preconditions, Expected Result o Steps son tan genéricos que no permiten reconocer qué parte específica del CU se valida. El CP debe ser ejecutable y autosuficiente con la información disponible.
 
-REGLA 30 — ÚNICA FUENTE DE REGLAS
+REGLA 31 — ÚNICA FUENTE DE REGLAS
 Este archivo es la única fuente de reglas funcionales de generación QA. El código no debe duplicar reglas funcionales del prompt. El código solo debe encargarse de cargar este archivo, aportar la fuente proporcionada por el usuario, solicitar la salida estructurada y validar el resultado.
 
 REGLA DE SALIDA
