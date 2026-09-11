@@ -65,84 +65,11 @@ SCHEMA = {
     "required": ["USE_CASES", "TEST_CASES", "ALERTS", "COVERAGE"]
 }
 
-DETAILED_QA_ADDENDUM = """
-REGLAS OBLIGATORIAS DE NIVEL DE DETALLE PARA LOS CASOS DE PRUEBA
-
-El Caso de Prueba debe reflejar con alto nivel de fidelidad el Caso de Uso (CU)
-relacionado. NO generes CP básicos, genéricos ni resumidos.
-
-1. TRAZABILIDAD CU -> CP
-- Identifica el CU exacto que sustenta cada CP y usa su contenido completo como fuente principal del caso.
-- Related Use Case debe indicar el ID y, cuando esté disponible, el nombre del CU.
-- Cada CP debe corresponder a EXACTAMENTE un CU.
-- Debe existir como mínimo un CP por cada CU identificado.
-- Si un CU requiere varios escenarios funcionales realmente distintos, puede tener varios CP.
-
-2. DESCRIPCIÓN SUPER DETALLADA
-La Description del CP debe explicar el escenario funcional completo. Incluye, cuando exista en la fuente:
-- objetivo y contexto del CU;
-- usuario, perfil o rol involucrado;
-- módulo, opción, pantalla o funcionalidad;
-- condiciones iniciales y precondiciones;
-- datos/campos que deben diligenciarse o consultarse;
-- reglas de negocio y condiciones;
-- estados iniciales/finales;
-- restricciones, límites y validaciones;
-- comportamiento esperado;
-- resultado final.
-
-Si para que el CP sea autónomo y ejecutable es necesario incorporar el contenido completo o casi completo del CU, HAZLO.
-
-2A. ESTRUCTURA OBLIGATORIA DE LA DESCRIPTION PARA AZURE DEVOPS
-- La Description del Excel debe contener la descripción funcional completa del CP.
-- Debe conservar el detalle funcional necesario para que el Test Case sea autosuficiente.
-- Debe presentar en este orden: Producto, Módulo, Descripción, Resultado esperado de la prueba, Precondiciones y Caso de uso relacionado.
-- No inventar datos. Si un dato no está definido, indicarlo como pendiente/por validar.
-- IMPORTANTE: cada bloque estructural debe aparecer UNA SOLA VEZ. La propiedad Description debe contener únicamente el contenido funcional de la descripción, no volver a incluir Producto, Módulo, Resultado esperado, Precondiciones ni Caso de uso relacionado.
-- Si la fuente o una respuesta previa ya trae esos encabezados dentro de Description, separa conceptualmente su contenido y evita repetirlos.
-
-3. PASOS COMPLETOS Y EJECUTABLES
-- Los Steps deben cubrir TODO el flujo necesario.
-- Cada acción funcional relevante debe aparecer como paso cuando sea necesario.
-- Cada paso debe ser concreto y verificable: acción + resultado esperado.
-- No conviertas cada paso en un CP.
-
-4. FIDELIDAD Y NO INVENCIÓN
-- Usa exclusivamente la documentación proporcionada como fuente de verdad.
-- No inventes usuarios, rutas, URLs, botones, mensajes, campos, valores, reglas, permisos o datos.
-- Cuando la fuente no defina un dato necesario, conserva la incertidumbre y genera ALERTA.
-
-5. CALIDAD MÍNIMA DEL CP
-Un CP es insuficiente si su Description, Preconditions, Expected Result o Steps son tan genéricos que no permiten reconocer qué parte específica del CU se valida.
-
-6. NAVEGACIÓN Y RUTA SUGERIDA
-- La generación DEBE intentar identificar una ruta de navegación útil a partir de la HU, CU, mockups, notas y TODOS los CP de referencia de la Suite seleccionada.
-- Cuando exista evidencia suficiente, incorpora la ruta dentro del contenido del bloque Description y refleja la misma navegación en los Steps.
-- La ruta debe llegar hasta la funcionalidad que se está validando.
-- La ruta puede expresarse de forma descriptiva, por ejemplo: "Ingresar al Cotizador Web -> seleccionar Colectivos Autos -> consultar la cotización -> acceder a la funcionalidad"; sustituye cada elemento por los nombres reales sustentados por la fuente.
-- NO inventes nombres de menú, submenú, botones, iconos, pantallas, URLs u opciones.
-- Si no existe evidencia suficiente para determinar una ruta concreta, NO inventes una. Genera la alerta exacta: "Ruta de navegación no definida en la fuente. Validar con equipo funcional."
-- Los CP de referencia pueden aportar la ruta real cuando la Suite seleccionada contiene esa información; evaluar TODOS los CP de la Suite antes de decidir la ruta.
-- No crear un bloque independiente llamado Ruta, Ruta sugerida, Ruta estimada, Ruta funcional o Navegación. La ruta debe formar parte de Description y de los Steps.
-
-7. EXCEL AZURE
-- Un CP debe exportarse como un bloque: cabecera + todas sus filas de Steps.
-- Tipo Origen Proyecto = Proyecto.
-- Area Path = COTIZADORES WEB\\DESARROLLO.
-- No crear un CP por cada Step.
-"""
-
 
 def load_prompt():
-    path = "prompt_qa.txt"
+    path = os.path.join("prompts", "prompt_qa.txt")
     if os.path.exists(path):
         with open(path, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-        if content:
-            return content
-    organized_path = os.path.join("prompts", "prompt_qa.txt")
-    if os.path.exists(organized_path):
-        with open(organized_path, "r", encoding="utf-8") as f:
             content = f.read().strip()
         if content:
             return content
@@ -227,21 +154,9 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
 
     full_prompt = (
         prompt_text
-        + "\n\n==================== ADDENDUM OBLIGATORIO DE CALIDAD ====================\n"
-        + DETAILED_QA_ADDENDUM
         + "\n\n==================== FUENTE PROPORCIONADA POR EL USUARIO ====================\n"
         + source_content
-        + "\n\n==================== REGLA DE PRIORIDAD ====================\n"
-        "La HU/documentación actual es la única fuente de verdad funcional. "
-        "Usa el CU completo como fuente principal del CP y conserva sus detalles. "
-        "Debe existir mínimo un CP por cada CU y cada CP debe corresponder a un solo CU. "
-        "No conviertas Steps en CP. "
-        "Related Use Case debe conservar el ID del CU. "
-        "No inventar un CU ni dejarlo como None si existe un título de CU en la fuente. "
-        "La navegación debe buscarse en la documentación y en TODOS los CP de referencia de la Suite. "
-        "Si existe evidencia suficiente, incluir la ruta real en Description y Steps; si no existe, generar la alerta exacta de ruta no definida. "
-        "No inventar botones, URLs, menús, pantallas ni rutas.\n"
-        "\n\n==================== REGLA DE SALIDA ====================\n"
+        + "\n\n==================== REGLA DE SALIDA ====================\n"
         "Devuelve exclusivamente JSON válido que cumpla el esquema solicitado. "
         "No agregues explicaciones fuera del JSON."
     )
