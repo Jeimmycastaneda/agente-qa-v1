@@ -150,7 +150,7 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
 
     max_source_chars = 120000
     if len(source_content) > max_source_chars:
-        source_content = source_content[:max_source_chars] + "\n...[DOCUMENTO EXCEDE EL LÍMITE DE SEGURIDAD; PRIORIZAR LOS CU Y SU CONTEXTO FUNCIONAL]"
+        source_content = source_content[:max_source_chars] + "\n...[DOCUMENTO EXCEDE EL LÍMITE DE SEGURIDAD]"
 
     full_prompt = (
         prompt_text
@@ -189,7 +189,7 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
                 errors.append(f"{candidate} / intento {attempt + 1}: {detail}")
                 error_text = detail.lower()
                 is_quota = "429" in detail or "quota" in error_text or "rate limit" in error_text or "resource exhausted" in error_text
-                is_retryable_internal = "500" in detail or "internal" in error_text or "503" in detail or "unavailable" in error_text or "deadline" in error_text or "timeout" in error_text
+                is_retryable_internal = "500" in detail or "internal" in error_text or "503" in error_text or "unavailable" in error_text or "deadline" in error_text or "timeout" in error_text
                 if is_quota:
                     _set_session_state("quota_exceeded", True)
                     _set_session_state("retry_count", attempt + 1)
