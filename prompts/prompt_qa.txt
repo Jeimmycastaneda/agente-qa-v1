@@ -125,3 +125,7 @@ Un CP es insuficiente si su Description, Preconditions, Expected Result o Steps 
 
 REGLA 30 — ÚNICA FUENTE DE REGLAS
 Este archivo es la única fuente de reglas funcionales de generación QA. El código no debe duplicar reglas funcionales del prompt. El código solo debe encargarse de cargar este archivo, aportar la fuente proporcionada por el usuario, solicitar la salida estructurada y validar el resultado.
+
+REGLA DE SALIDA
+
+Devuelve exclusivamente JSON válido que cumpla el esquema solicitado por la aplicación. No agregues explicaciones, comentarios ni texto fuera del JSON.
