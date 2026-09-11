@@ -1,6 +1,7 @@
 """Proveedor Gemini y generación estructurada de datos QA.
 
-Código funcional copiado desde main. No se toma código de mao-dev-branch.
+La fuente funcional de reglas de generación es únicamente prompts/prompt_qa.txt.
+Este módulo contiene solo integración con Gemini, esquema técnico y validación.
 """
 
 import json
@@ -68,16 +69,15 @@ SCHEMA = {
 
 def load_prompt():
     path = os.path.join("prompts", "prompt_qa.txt")
-    if os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as f:
-            content = f.read().strip()
-        if content:
-            return content
-    return (
-        "Eres un agente QA especializado en análisis de documentación. "
-        "Analiza exclusivamente la fuente proporcionada, no inventes información "
-        "y genera TEST_CASES, ALERTS y COVERAGE en JSON."
-    )
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            "No se encontró la única fuente de reglas QA: prompts/prompt_qa.txt"
+        )
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+    if not content:
+        raise ValueError("La única fuente de reglas QA está vacía: prompts/prompt_qa.txt")
+    return content
 
 
 @st.cache_data(ttl=3600)
@@ -156,9 +156,6 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
         prompt_text
         + "\n\n==================== FUENTE PROPORCIONADA POR EL USUARIO ====================\n"
         + source_content
-        + "\n\n==================== REGLA DE SALIDA ====================\n"
-        "Devuelve exclusivamente JSON válido que cumpla el esquema solicitado. "
-        "No agregues explicaciones fuera del JSON."
     )
 
     client = genai.Client(api_key=api_key)
