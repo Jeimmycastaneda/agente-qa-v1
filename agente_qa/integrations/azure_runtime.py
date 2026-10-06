@@ -278,28 +278,64 @@ def add_test_cases_to_suite(plan_id, suite_id, work_item_ids):
 
 
 def create_selected_cases_in_azure(cases, target_plan, target_suite):
-    created, work_item_ids, errors = [], [], []
+    """Crea cada CP y lo asocia inmediatamente a la Suite del Test Plan.
+
+    La asociación se hace por CP, justo después de crear el Work Item. Esto
+    evita dejar CP creados sin destino y permite identificar con precisión qué
+    CP quedó realmente publicado.
+    """
+    created, errors = [], []
+
+    plan_id = target_plan.get("id")
+    suite_id = target_suite.get("id")
+    if not plan_id or not suite_id:
+        raise AzureDevOpsError("El Test Plan y la Suite destino son obligatorios para crear CP.")
+
+    # Defensa adicional contra duplicados: la UI valida antes de confirmar,
+    # pero la operación real vuelve a consultar Azure para evitar duplicados
+    # si la pantalla quedó desactualizada o se ejecutó dos veces.
+    existing = list_test_cases(plan_id, suite_id)
+    existing_titles = {
+        re.sub(r"\\s+", " ", safe_text(row.get("title"))).strip().casefold()
+        for row in existing
+        if safe_text(row.get("title"))
+    }
+
     for tc in cases:
         cp_id = safe_text(tc.get("ID"), "CP-PREVIEW")
+        title = build_case_title(tc, cp_id)
+        normalized_title = re.sub(r"\\s+", " ", title).strip().casefold()
+
+        if normalized_title in existing_titles:
+            errors.append({
+                "cp_id": cp_id,
+                "error": "El Test Case ya existe en la Suite destino. No se creó otro para evitar duplicados.",
+                "duplicate": True,
+            })
+            continue
+
         try:
             wi = create_azure_test_case_work_item(tc, target_plan)
             azure_id = wi.get("id")
             if not azure_id:
                 raise AzureDevOpsError("Azure no devolvió el ID del Work Item creado.")
-            work_item_ids.append(int(azure_id))
-            created.append({"cp_id": cp_id, "title": build_case_title(tc, cp_id), "azure_id": int(azure_id), "status": "Work Item creado; pendiente de asociar a Suite"})
+
+            # Asociación inmediata: la Suite pertenece al Test Plan seleccionado.
+            add_test_cases_to_suite(plan_id, suite_id, [int(azure_id)])
+
+            created.append({
+                "cp_id": cp_id,
+                "title": title,
+                "azure_id": int(azure_id),
+                "status": "Creado y asociado al Test Plan/Suite",
+            })
+            existing_titles.add(normalized_title)
         except Exception as exc:
-            errors.append({"cp_id": cp_id, "error": str(exc)})
-    if work_item_ids:
-        try:
-            add_test_cases_to_suite(target_plan["id"], target_suite["id"], work_item_ids)
-            for row in created:
-                row["status"] = "Creado y asociado a la Suite"
-        except Exception as exc:
-            for row in created:
-                row["status"] = "Work Item creado, pero NO se pudo asociar a la Suite"
-                row["association_error"] = str(exc)
-            errors.append({"cp_id": "LOTE", "error": f"No se pudo asociar el lote a la Suite: {exc}"})
+            errors.append({
+                "cp_id": cp_id,
+                "error": str(exc),
+            })
+
     return {"created": created, "errors": errors}
 
 
