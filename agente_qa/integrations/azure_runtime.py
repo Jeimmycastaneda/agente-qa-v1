@@ -296,7 +296,7 @@ def create_selected_cases_in_azure(cases, target_plan, target_suite):
     # si la pantalla quedó desactualizada o se ejecutó dos veces.
     existing = list_test_cases(plan_id, suite_id)
     existing_titles = {
-        re.sub(r"\\s+", " ", safe_text(row.get("title"))).strip().casefold()
+        re.sub(r"\s+", " ", safe_text(row.get("title"))).strip().casefold()
         for row in existing
         if safe_text(row.get("title"))
     }
@@ -304,7 +304,7 @@ def create_selected_cases_in_azure(cases, target_plan, target_suite):
     for tc in cases:
         cp_id = safe_text(tc.get("ID"), "CP-PREVIEW")
         title = build_case_title(tc, cp_id)
-        normalized_title = re.sub(r"\\s+", " ", title).strip().casefold()
+        normalized_title = re.sub(r"\s+", " ", title).strip().casefold()
 
         if normalized_title in existing_titles:
             errors.append({
