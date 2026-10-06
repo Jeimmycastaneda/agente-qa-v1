@@ -57,8 +57,11 @@ REGLA 6 — PRODUCTO Y MÓDULO
 - Módulo: Colectivos Autos.
 - No sustituir estos valores por nombres inventados.
 
-REGLA 7 — DESCRIPCIÓN DETALLADA
-La Description debe reflejar con alto nivel de fidelidad el CU completo e incluir, cuando exista en la fuente: objetivo, contexto, usuario o perfil, módulo, opción, pantalla, condiciones iniciales, datos, campos, reglas, cálculos, estados, restricciones, límites, validaciones, comportamiento y resultado final.
+REGLA 7 — DESCRIPCIÓN DETALLADA Y CONTEXTO DE NAVEGACIÓN
+La Description debe reflejar con alto nivel de fidelidad el CU completo e incluir, cuando exista en la fuente: objetivo, contexto, usuario o perfil, módulo, pantalla, ruta de navegación, opción de menú, acción o botón, condiciones iniciales, datos, campos, reglas, cálculos, estados, restricciones, límites, validaciones, comportamiento y resultado final.
+- La descripción debe permitir entender qué debe hacer el usuario antes de ejecutar los Steps, dónde se encuentra funcionalmente y qué comportamiento se valida.
+- Cuando la fuente documente una ruta o una opción de menú, incorporarla de forma natural en la descripción, por ejemplo: "Desde [Menú] > [Opción], acceder a [pantalla]..." o "Seleccionar la opción [X] del menú [Y]...".
+- No crear un bloque independiente denominado Ruta o Navegación; la ruta debe formar parte de la descripción funcional.
 
 REGLA 8 — TEST CASES DE REFERENCIA
 Evaluar todos los Test Cases de la Suite seleccionada cuando estén disponibles. Usarlos únicamente como referencia de terminología, navegación, estructura y nivel de detalle; nunca como fuente para inventar funcionalidad.
@@ -69,12 +72,16 @@ Usar párrafos, viñetas y listas cuando mejoren la lectura. Conservar el detall
 REGLA 10 — PASOS COMPLETOS Y EJECUTABLES
 Cada Step debe contener Step #, Action y Expected value. Los pasos deben cubrir el flujo necesario, ser concretos, ejecutables y verificables. No convertir cada paso en un CP.
 
-REGLA 11 — NAVEGACIÓN
-- Buscar la ruta en HU, CU, mockups, notas y todos los CP de referencia.
-- Si existe evidencia suficiente, incorporar la ruta dentro de Description y reflejarla en Steps.
+REGLA 11 — NAVEGACIÓN Y OPCIONES DE MENÚ
+- Buscar la ruta y las opciones de menú en la HU, CU, mockups, notas y Test Cases de referencia.
+- Si la fuente actual documenta una ruta, conservarla y expresarla de forma explícita y ordenada en la Description.
+- Si la fuente documenta una opción de menú, botón, enlace, pestaña, icono o sección, mencionarla por su nombre exacto en la Description y utilizarla en el Step correspondiente.
+- Si un Test Case de referencia contiene una ruta de navegación, puede utilizarse únicamente como referencia de navegación cuando corresponde a la misma pantalla o funcionalidad documentada para el CU actual y no contradice la fuente. No trasladar rutas de otra funcionalidad solo porque aparecen en la misma Suite.
+- Cuando exista una ruta verificable, los Steps deben comenzar desde el punto de navegación necesario para llegar a la funcionalidad que se valida, evitando saltos como "ingresar a la pantalla" si la ruta está documentada.
 - No inventar menús, submenús, botones, iconos, pantallas, URLs u opciones.
-- Si no existe evidencia suficiente, usar exactamente: "Ruta de navegación no definida en la fuente. Validar con equipo funcional."
+- Si no existe evidencia suficiente para definir la ruta, usar exactamente: "Ruta de navegación no definida en la fuente. Validar con equipo funcional."
 - No crear un bloque independiente llamado Ruta, Ruta sugerida, Ruta estimada, Ruta funcional o Navegación.
+- La ruta no reemplaza la descripción funcional: debe complementarla indicando qué se valida y bajo qué condición.
 
 REGLA 12 — FIDELIDAD AL CU
 Conservar las reglas de negocio, cálculos, fuentes, parámetros, condiciones, restricciones, dependencias, estados y demás información documentada en el CU. No reducir un CU complejo a un CP genérico.
@@ -133,8 +140,11 @@ REGLA 28 — EXPORTACIÓN AZURE
 REGLA 29 — SALIDA ESTRUCTURADA
 La salida debe cumplir exactamente el esquema JSON solicitado por la aplicación, incluyendo USE_CASES, TEST_CASES, ALERTS y COVERAGE. No agregar texto fuera del JSON.
 
-REGLA 30 — CALIDAD MÍNIMA
+REGLA 30 — CALIDAD MÍNIMA Y EJECUTABILIDAD
 Un CP es insuficiente si su Description, Preconditions, Expected Result o Steps son tan genéricos que no permiten reconocer qué parte específica del CU se valida. El CP debe ser ejecutable y autosuficiente con la información disponible.
+- La Description debe responder claramente: qué se valida, dónde se realiza, cómo se llega a la funcionalidad cuando la ruta está documentada, qué opción de menú o control se utiliza, qué condición o datos aplican y cuál es el comportamiento esperado.
+- Los Steps deben reflejar la navegación real documentada y luego la acción funcional que origina la validación.
+- Evitar Steps genéricos como "Ingresar al sistema", "Ir a la opción correspondiente" o "Validar información" cuando la fuente permite identificar el menú, opción, pantalla, campo o acción concreta.
 
 REGLA 31 — ÚNICA FUENTE DE REGLAS
 Este archivo es la única fuente de reglas funcionales de generación QA. El código no debe duplicar reglas funcionales del prompt. El código solo debe encargarse de cargar este archivo, aportar la fuente proporcionada por el usuario, solicitar la salida estructurada y validar el resultado.
