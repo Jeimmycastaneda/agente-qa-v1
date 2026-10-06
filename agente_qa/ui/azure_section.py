@@ -268,16 +268,55 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     id_padre = st.text_input("IDPadre (ID del CU relacionado)", value=safe_text(st.session_state.get("azure_id_padre"), inferred_parent), placeholder="Ej. 12345", key="azure_id_padre_input"); st.session_state.azure_id_padre = id_padre.strip()
     tipo_origen = st.text_input("Tipo Origen Proyecto", value=safe_text(st.session_state.get("azure_tipo_origen_proyecto"), "Proyecto"), key="azure_tipo_origen_input"); st.session_state.azure_tipo_origen_proyecto = tipo_origen.strip() or "Proyecto"
     suite_name = safe_text(target_suite.get("name"), publish_case_map[selected_publish_ids[0]].get("SUITE_NAME") if selected_publish_ids else st.session_state.get("qa_generation_suite_name", ""))
+
+    # CP creados y asociados durante esta sesión: no deben volver a aparecer
+    # como "duplicados" ni volver a enviarse a Azure.
+    publish_result = st.session_state.get("azure_publish_results") or {}
+    created_this_session = {
+        safe_text(row.get("cp_id"))
+        for row in publish_result.get("created", [])
+        if safe_text(row.get("status")) == "Creado y asociado al Test Plan/Suite"
+    }
+    already_created_selected = [cp_id for cp_id in selected_publish_ids if cp_id in created_this_session]
+    pending_publish_ids = [cp_id for cp_id in selected_publish_ids if cp_id not in created_this_session]
+
+    if already_created_selected:
+        st.success(
+            "✅ Estos CP ya fueron creados y asociados al Test Plan/Suite en esta sesión: "
+            + ", ".join(already_created_selected)
+            + ". No se volverán a crear."
+        )
+
     duplicate_titles = []
-    if target_suite and selected_publish_ids:
+    if target_suite and pending_publish_ids:
         try:
-            existing = list_test_cases(target_plan_id, target_suite.get("id")); existing_titles = {re.sub(r"\s+", " ", safe_text(row.get("title"))).strip().casefold() for row in existing}
-            for cp_id in selected_publish_ids:
+            existing = list_test_cases(target_plan_id, target_suite.get("id"))
+            existing_titles = {
+                re.sub(r"\s+", " ", safe_text(row.get("title"))).strip().casefold()
+                for row in existing
+            }
+            for cp_id in pending_publish_ids:
                 title = build_case_title(publish_case_map[cp_id], cp_id, suite_name=suite_name)
-                if re.sub(r"\s+", " ", title).strip().casefold() in existing_titles: duplicate_titles.append(cp_id)
-        except Exception as exc: st.warning(f"⚠️ No fue posible validar duplicados antes de la creación: {exc}")
-    if duplicate_titles: st.error("🚫 Se detectaron títulos que ya existen en la Suite destino: " + ", ".join(duplicate_titles) + ". La creación queda bloqueada.")
-    ready = bool(selected_publish_ids and target_plan and target_suite and not duplicate_titles and safe_text(st.session_state.get("azure_id_padre")) and safe_text(st.session_state.get("azure_tipo_origen_proyecto"), "Proyecto"))
+                if re.sub(r"\s+", " ", title).strip().casefold() in existing_titles:
+                    duplicate_titles.append(cp_id)
+        except Exception as exc:
+            st.warning(f"⚠️ No fue posible validar duplicados antes de la creación: {exc}")
+
+    if duplicate_titles:
+        st.error(
+            "🚫 Se detectaron títulos que ya existen en la Suite destino: "
+            + ", ".join(duplicate_titles)
+            + ". La creación queda bloqueada para esos CP."
+        )
+
+    ready = bool(
+        pending_publish_ids
+        and target_plan
+        and target_suite
+        and not duplicate_titles
+        and safe_text(st.session_state.get("azure_id_padre"))
+        and safe_text(st.session_state.get("azure_tipo_origen_proyecto"), "Proyecto")
+    )
     if not safe_text(st.session_state.get("azure_id_padre")): st.warning("⚠️ Falta IDPadre. La creación queda bloqueada porque Azure lo exige.")
     st.markdown("### 2️⃣ Revisar y confirmar creación")
     st.dataframe(pd.DataFrame([{"CP": cp_id, "Título": build_case_title(publish_case_map[cp_id], cp_id, suite_name=suite_name), "Caso de Uso": safe_text(publish_case_map[cp_id].get("Related Use Case"), "Pendiente"), "Steps": len(safe_steps(publish_case_map[cp_id]))} for cp_id in selected_publish_ids]), width="stretch", hide_index=True)
@@ -286,16 +325,41 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     if st.button("🔄 Sincronizar con Azure DevOps", type="primary", disabled=not (ready and confirm), key="azure_publish_execute"):
         try:
             selected_cases = []
-            for cp_id in selected_publish_ids:
-                tc = dict(publish_case_map[cp_id]); tc["IDPadre"] = safe_text(st.session_state.get("azure_id_padre")); tc["Tipo Origen Proyecto"] = safe_text(st.session_state.get("azure_tipo_origen_proyecto"), "Proyecto"); tc["SUITE_NAME"] = suite_name; selected_cases.append(tc)
-            with st.spinner(f"Sincronizando {len(selected_cases)} Test Case(s) con Azure DevOps..."):
-                st.session_state.azure_publish_results = create_selected_cases_in_azure(selected_cases, target_plan, target_suite)
+            for cp_id in pending_publish_ids:
+                tc = dict(publish_case_map[cp_id])
+                tc["IDPadre"] = safe_text(st.session_state.get("azure_id_padre"))
+                tc["Tipo Origen Proyecto"] = safe_text(st.session_state.get("azure_tipo_origen_proyecto"), "Proyecto")
+                tc["SUITE_NAME"] = suite_name
+                selected_cases.append(tc)
+
+            with st.spinner(f"Creando y asociando {len(selected_cases)} Test Case(s) con Azure DevOps..."):
+                st.session_state.azure_publish_results = create_selected_cases_in_azure(
+                    selected_cases, target_plan, target_suite
+                )
             st.rerun()
         except Exception as exc: st.error(f"❌ No se pudo completar la sincronización con Azure: {exc}")
     publish_result = st.session_state.get("azure_publish_results")
     if publish_result:
         st.markdown("### 📌 Resultado de la creación en Azure")
         if publish_result.get("created"):
-            st.dataframe(pd.DataFrame([{"CP generado": r.get("cp_id"), "Azure ID": r.get("azure_id"), "Estado": r.get("status")} for r in publish_result["created"]]), width="stretch", hide_index=True)
-            st.success(f"✅ {len(publish_result['created'])} CP procesados en Azure.")
-        for err in publish_result.get("errors", []): st.error(f"❌ {err.get('cp_id')}: {err.get('error')}")
+            st.dataframe(
+                pd.DataFrame([
+                    {
+                        "CP generado": r.get("cp_id"),
+                        "Azure ID": r.get("azure_id"),
+                        "Estado": r.get("status"),
+                    }
+                    for r in publish_result["created"]
+                ]),
+                width="stretch",
+                hide_index=True,
+            )
+            st.success(
+                f"✅ {len(publish_result['created'])} CP creado(s) y asociado(s) al Test Plan/Suite. "
+                "No se volverán a crear en esta sesión."
+            )
+        for err in publish_result.get("errors", []):
+            if err.get("duplicate"):
+                st.warning(f"⚠️ {err.get('cp_id')}: {err.get('error')}")
+            else:
+                st.error(f"❌ {err.get('cp_id')}: {err.get('error')}")
