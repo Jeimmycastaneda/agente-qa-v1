@@ -76,8 +76,10 @@ with st.sidebar:
                 inspection = inspect_cotizador(cotizador_url, cotizador_user, cotizador_password, cotizador_login_selector)
             st.session_state.cotizador_source_text = inspection.source_text
             st.session_state.cotizador_pages = inspection.pages
+            st.session_state.cotizador_access_status = "AMBIENTE"
             st.success(f"✅ Cotizador conectado. Se identificaron {len(inspection.pages)} página(s).")
         except CotizadorBrowserError as exc:
+            st.session_state.cotizador_access_status = "NO_DISPONIBLE"
             st.error(f"❌ {exc}")
         except Exception as exc:
             st.error(f"❌ Error inesperado al conectar el cotizador: {exc}")
@@ -92,10 +94,17 @@ source_text = render_document_section(extract_source)
 # Gemini debe seguir usando la HU como fuente funcional y no inventar reglas.
 cotizador_source = st.session_state.get("cotizador_source_text", "")
 reference_source = st.session_state.get("azure_reference_source_text", "")
+cotizador_status = st.session_state.get("cotizador_access_status", "NO_DISPONIBLE")
+reference_status = (
+    "AMBIENTE disponible: usarlo solo para confirmar navegación del módulo Colectivos Autos."
+    if cotizador_status == "AMBIENTE"
+    else "AMBIENTE no disponible: usar los Test Cases de las Suites de referencia seleccionadas como base de navegación y pasos."
+)
 if cotizador_source:
     source_text = f"{source_text}\n\n{cotizador_source}".strip()
 if reference_source:
     source_text = f"{source_text}\n\n{reference_source}".strip()
+source_text = f"{source_text}\n\nESTADO DE EVIDENCIA DE NAVEGACION:\n{reference_status}".strip()
 
 render_generation_section(
     generate_qa_data=generate_qa_data,
