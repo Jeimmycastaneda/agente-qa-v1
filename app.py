@@ -33,7 +33,7 @@ from agente_qa.integrations.azure_runtime import (
     list_test_suites,
     test_connection,
 )
-from agente_qa.integrations.cotizador_browser import CotizadorBrowserError, inspect_cotizador
+from agente_qa.integrations.cotizador_colectivos import CotizadorColectivosError, inspect_cotizador_colectivos
 from config.qa_config import EXCEL_CONFIGS
 
 FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"]
@@ -73,12 +73,12 @@ with st.sidebar:
     if st.button("🔎 Conectar y analizar navegación", key="cotizador_inspect"):
         try:
             with st.spinner("Iniciando sesión y analizando navegación visible..."):
-                inspection = inspect_cotizador(cotizador_url, cotizador_user, cotizador_password, cotizador_login_selector)
+                inspection = inspect_cotizador_colectivos(cotizador_url, cotizador_user, cotizador_password, cotizador_login_selector)
             st.session_state.cotizador_source_text = inspection.source_text
             st.session_state.cotizador_pages = inspection.pages
             st.session_state.cotizador_access_status = "AMBIENTE"
             st.success(f"✅ Cotizador conectado. Se identificaron {len(inspection.pages)} página(s).")
-        except CotizadorBrowserError as exc:
+        except CotizadorColectivosError as exc:
             st.session_state.cotizador_access_status = "NO_DISPONIBLE"
             st.error(f"❌ {exc}")
         except Exception as exc:
