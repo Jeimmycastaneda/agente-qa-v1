@@ -31,6 +31,7 @@ from agente_qa.integrations.azure_runtime import (
     list_test_cases,
     list_test_plans,
     list_test_suites,
+    list_reference_suites_current_year,
     test_connection,
 )
 from agente_qa.integrations.cotizador_colectivos import CotizadorColectivosError, inspect_cotizador_colectivos
