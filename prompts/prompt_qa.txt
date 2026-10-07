@@ -149,6 +149,42 @@ Un CP es insuficiente si su Description, Preconditions, Expected Result o Steps 
 REGLA 31 — ÚNICA FUENTE DE REGLAS
 Este archivo es la única fuente de reglas funcionales de generación QA. El código no debe duplicar reglas funcionales del prompt. El código solo debe encargarse de cargar este archivo, aportar la fuente proporcionada por el usuario, solicitar la salida estructurada y validar el resultado.
 
+
+REGLA 32 — RUTA FUNCIONAL CON EVIDENCIA DEL AMBIENTE
+- Si existe evidencia obtenida directamente del ambiente real del cotizador, utilizarla exclusivamente para confirmar nombres visibles de módulos, menús, submenús, opciones, pestañas, botones, campos y secuencia de navegación.
+- El acceso al ambiente está restringido al módulo de Colectivos Autos/Cotización. No utilizar ni solicitar información de otros módulos, administración, configuración, seguridad, usuarios, catálogos u otras áreas.
+- La evidencia del ambiente nunca reemplaza la HU/CU como fuente de reglas funcionales. Solo puede aportar navegación observable y pasos de acceso.
+- No inventar una ruta a partir de conocimiento general del sistema.
+
+REGLA 33 — FALLBACK CUANDO NO HAY ACCESO AL AMBIENTE
+- Determinar explícitamente si la evidencia del ambiente está disponible y es utilizable.
+- Si no hay acceso al ambiente, la sesión no logra autenticarse, la navegación no puede ser inspeccionada o la evidencia obtenida es insuficiente, NO detener la generación.
+- En ese caso, tomar como base los Test Cases de referencia seleccionados en Azure DevOps para reconstruir exclusivamente la navegación, terminología, estructura y nivel de detalle de los Steps.
+- Los Test Cases de referencia no autorizan a inventar reglas, datos, controles o comportamientos del CU actual.
+- Si tampoco existen Test Cases de referencia suficientes para determinar una ruta, generar ALERTA con: "No hay acceso al ambiente y no existe evidencia suficiente en los Test Cases de referencia para determinar la ruta. Validar con equipo funcional."
+- Registrar internamente el origen utilizado para la ruta: AMBIENTE o TEST_CASES_REFERENCIA.
+
+REGLA 34 — TRES SUITES DE REFERENCIA DEL AÑO ACTUAL
+- La interfaz debe permitir seleccionar hasta tres Suites de referencia pertenecientes a Test Plans del año calendario actual.
+- Para generación basada en referencia, exigir tres Suites seleccionadas cuando existan al menos tres Suites elegibles; si existen menos de tres, permitir continuar con las disponibles y generar ALERTA informativa.
+- Las Suites seleccionadas se utilizan conjuntamente para identificar patrones repetidos de navegación, nombres reales de menú/opción, estructura de Description y nivel de detalle de Steps.
+- Consultar únicamente Test Cases contenidos en las Suites seleccionadas y utilizar esa información como evidencia estructural.
+- No mezclar información funcional de Test Cases de Suites no seleccionadas.
+- Cuando las tres Suites presenten rutas o terminología diferentes, priorizar la evidencia que corresponda a la misma pantalla/funcionalidad del CU actual y marcar ALERTA si la diferencia no puede resolverse con evidencia.
+- Las Suites de referencia no son fuente de verdad funcional del CU actual.
+
+REGLA 35 — PASOS DESCRIPTIVOS A PARTIR DE LAS REFERENCIAS
+- Los Steps deben reconstruir la navegación de forma progresiva: acceso al módulo, menú/submenú, opción, pantalla, selección de pestaña/sección/campo y acción funcional, únicamente cuando esos elementos estén respaldados por la HU/CU, el ambiente o los Test Cases de referencia.
+- Evitar pasos genéricos como "Ingresar al sistema", "Ir a la opción correspondiente" o "Validar información" cuando la evidencia permite expresar el nombre concreto del menú, opción, pantalla, campo o acción.
+- Los Test Cases de las tres Suites sirven para aumentar el nivel descriptivo de los Steps, pero no para copiar literalmente pasos que validen una funcionalidad distinta.
+- Si la evidencia solo permite confirmar parte de la ruta, documentar únicamente esa parte y generar ALERTA por lo que falte.
+
+REGLA 36 — LÍMITE DE ACCESO FUNCIONAL
+- El agente solo puede consultar y crear información relacionada con el módulo Colectivos Autos/Cotización dentro del alcance autorizado.
+- No consultar ni exponer información de otros módulos o configuraciones para mejorar una generación.
+- Las consultas de Azure deben limitarse a Test Plans, Suites y Test Cases necesarios para la referencia o el destino seleccionado.
+- Las operaciones de escritura quedan limitadas a la creación del CP seleccionado y su asociación a la Suite/Test Plan seleccionado. No crear, modificar ni eliminar Test Plans o Suites.
+
 REGLA DE SALIDA
 
 Devuelve exclusivamente JSON válido que cumpla el esquema solicitado por la aplicación. No agregues explicaciones, comentarios ni texto fuera del JSON.
