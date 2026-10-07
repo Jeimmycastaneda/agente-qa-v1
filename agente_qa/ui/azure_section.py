@@ -139,7 +139,7 @@ def _init_state():
             st.session_state[key] = value
 
 
-def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azure_error_type, list_test_plans, list_test_suites, list_test_cases, get_test_case_detail, delete_test_case, calculate_cu_coverage, create_excel, create_pdf, result, source_name):
+def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azure_error_type, list_test_plans, list_test_suites, list_reference_suites_current_year, list_test_cases, get_test_case_detail, delete_test_case, calculate_cu_coverage, create_excel, create_pdf, result, source_name):
     _init_state()
     st.header("⚙️ Configuración")
     try:
