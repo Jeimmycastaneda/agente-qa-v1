@@ -372,6 +372,88 @@ def list_test_suites(plan_id):
     return rows
 
 
+def list_reference_suites_current_year(year: int):
+    """Lista Suites de referencia del año indicado dentro del alcance Colectivos Autos.
+
+    Solo devuelve recursos de lectura. El año se determina por las fechas del
+    Test Plan y, como respaldo, por su nombre/iteración. Las Suites se filtran
+    por evidencia textual de Colectivos Autos para evitar consultar otros módulos.
+    """
+    cfg = _az_config()
+    _az_validate(cfg)
+    params = urlencode({
+        "api-version": "7.1",
+        "includePlanDetails": "true",
+        "$top": 100,
+    })
+    payload, _ = _az_get_json(_az_testplan_url(cfg, "plans") + "?" + params, cfg["pat"])
+    plans = payload.get("value") or []
+
+    def text_plan(plan):
+        return " ".join(
+            safe_text(plan.get(key))
+            for key in ("name", "areaPath", "iteration", "description")
+        ).casefold()
+
+    def is_year(plan):
+        values = [
+            safe_text(plan.get("startDate")),
+            safe_text(plan.get("endDate")),
+            safe_text(plan.get("updatedDate")),
+            text_plan(plan),
+        ]
+        return any(str(year) in value for value in values)
+
+    current_plans = [p for p in plans if is_year(p)]
+    suites = []
+    for plan in current_plans:
+        plan_id = plan.get("id")
+        if not plan_id:
+            continue
+        plan_text = text_plan(plan)
+        try:
+            plan_suites = list_test_suites(plan_id)
+        except Exception:
+            continue
+        for suite in plan_suites:
+            suite_text = safe_text(suite.get("name")).casefold()
+            if "colectiv" not in suite_text and "colectiv" not in plan_text and "autos" not in suite_text:
+                continue
+            suites.append({
+                **suite,
+                "plan_id": plan_id,
+                "plan_name": safe_text(plan.get("name"), "Test Plan sin nombre"),
+                "plan_start_date": safe_text(plan.get("startDate")),
+                "plan_end_date": safe_text(plan.get("endDate")),
+                "scope": "Colectivos Autos",
+            })
+
+    unique = []
+    seen = set()
+    for suite in suites:
+        key = (str(suite.get("plan_id")), str(suite.get("id")))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(suite)
+    unique.sort(key=lambda x: (safe_text(x.get("plan_start_date")), safe_text(x.get("plan_name")), safe_text(x.get("name"))), reverse=True)
+    return {
+        "ok": True,
+        "year": year,
+        "plans": [
+            {
+                "id": p.get("id"),
+                "name": safe_text(p.get("name"), "Test Plan sin nombre"),
+                "start_date": safe_text(p.get("startDate")),
+                "end_date": safe_text(p.get("endDate")),
+            }
+            for p in current_plans
+        ],
+        "suites": unique,
+        "message": f"Consulta de solo lectura: {len(unique)} Suite(s) elegibles del año {year} dentro del alcance Colectivos Autos."
+    }
+
+
 def _normalize_case_rows(payload):
     rows = []
     values = payload.get("value") if isinstance(payload, dict) else []
