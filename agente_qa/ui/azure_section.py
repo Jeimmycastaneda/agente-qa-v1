@@ -252,7 +252,16 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             st.info(plans_result.get("message", "Consulta completada."))
         except Exception as exc:
             st.error(f"❌ No se pudieron consultar los Test Plans: {exc}")
-    plans = st.session_state.azure_reference_plans
+    plans = [
+        plan for plan in (st.session_state.azure_reference_plans or [])
+        if any(
+            term in " ".join(
+                safe_text(plan.get(key))
+                for key in ("name", "area_path", "iteration")
+            ).casefold()
+            for term in ("colectiv", "autos")
+        )
+    ]
     if plans:
         plan_options = [f"{_ui(p.get('id'), 'SIN ID')} — {_ui(p.get('name'), 'Test Plan sin nombre')}" for p in plans]
         selected_plan_label = st.selectbox("1️⃣ Test Plan", plan_options, key="azure_reference_plan_select")
