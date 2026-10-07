@@ -17,6 +17,34 @@ def _ui(value, default=""):
     return safe_text(value, default)
 
 
+def _build_reference_navigation_source(details, suites):
+    blocks = [
+        "EVIDENCIA DE TEST CASES DE REFERENCIA AZURE — SOLO PARA NAVEGACION Y NIVEL DE DETALLE.",
+        "ALCANCE: Colectivos Autos/Cotizacion. No utilizar para inferir reglas funcionales nuevas.",
+    ]
+    for suite in suites or []:
+        blocks.append(
+            f"SUITE: {safe_text(suite.get('name'), 'Sin nombre')} | "
+            f"TEST PLAN: {safe_text(suite.get('plan_name'), 'Sin nombre')} | "
+            f"PLAN_ID: {safe_text(suite.get('plan_id'))} | SUITE_ID: {safe_text(suite.get('id'))}"
+        )
+        suite_cases = [
+            d for d in (details or [])
+            if safe_text(d.get("_suite_id")) == safe_text(suite.get("id"))
+        ]
+        for detail in suite_cases:
+            blocks.append(f"TEST CASE DE REFERENCIA: {safe_text(detail.get('id'))} — {safe_text(detail.get('title'))}")
+            description = _reference_description_pretty(detail.get("description", ""))
+            if description:
+                blocks.append("DESCRIPTION OBSERVADA:\n" + description[:8000])
+            for step in detail.get("steps") or []:
+                action = safe_text(step.get("Action"))
+                expected = safe_text(step.get("Expected value"), step.get("Expected"))
+                if action or expected:
+                    blocks.append(f"STEP: {action}\nEXPECTED: {expected}")
+    return "\n\n---\n\n".join(blocks)
+
+
 def _reference_description_pretty(description):
     raw = html.unescape(safe_text(description))
     raw = re.sub(r"(?i)<br\s*/?>", "\n", raw)
@@ -103,7 +131,7 @@ def _init_state():
     defaults = {
         "azure_reference_plans": [], "azure_reference_plan_id": None, "azure_reference_suites": [], "azure_reference_suite_id": None,
         "azure_reference_cases": [], "azure_reference_case_id": None, "azure_reference_case_ids": [], "azure_reference_detail": None,
-        "azure_reference_details": [], "azure_reference_analysis": None, "azure_reference_preview": None, "azure_preview_edit_mode": False,
+        "azure_reference_details": [], "azure_reference_analysis": None, "azure_reference_preview": None, "azure_reference_source_text": "", "azure_reference_suites_catalog": [], "azure_reference_selected_suites": [], "azure_preview_edit_mode": False,
         "azure_target_plan_id": None, "azure_target_suite_id": None, "azure_target_suites": [], "azure_publish_selection": "Un solo CP", "azure_publish_results": None,
     }
     for key, value in defaults.items():
@@ -127,7 +155,77 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
     selected_config = st.selectbox("Formato de Excel", list(excel_configs.keys()), index=0)
     max_retries = st.number_input("Máximo de reintentos", min_value=0, max_value=5, value=2)
     wait_time = st.number_input("Espera inicial (segundos)", min_value=1, max_value=60, value=10)
-    st.divider(); st.subheader("🔐 Azure DevOps")
+    st.divider(); st.subheader("📚 Referencias de navegación para generar Steps")
+    st.caption("Solo lectura. Selecciona hasta 3 Suites del año actual dentro del alcance Colectivos Autos. Si el ambiente no está disponible, estas Suites serán la base para reconstruir rutas y pasos descriptivos.")
+
+    if st.button("📚 Buscar Suites de referencia del año actual", key="azure_reference_current_year"):
+        try:
+            from datetime import datetime
+            with st.spinner("Consultando Suites del año actual dentro de Colectivos Autos..."):
+                catalog_result = list_reference_suites_current_year(datetime.now().year)
+            st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
+            st.session_state.azure_reference_selected_suites = []
+            st.session_state.azure_reference_details = []
+            st.session_state.azure_reference_source_text = ""
+            if catalog_result.get("suites"):
+                st.success(catalog_result.get("message", "Suites encontradas."))
+            else:
+                st.warning("⚠️ No se encontraron Suites elegibles del año actual dentro de Colectivos Autos.")
+        except Exception as exc:
+            st.error(f"❌ No se pudieron consultar las Suites de referencia: {exc}")
+
+    reference_catalog = st.session_state.get("azure_reference_suites_catalog", []) or []
+    if reference_catalog:
+        suite_labels = [
+            f"{_ui(s.get('plan_name'), 'Test Plan')} → {_ui(s.get('name'), 'Suite')} "
+            f"(Plan {s.get('plan_id')} / Suite {s.get('id')})"
+            for s in reference_catalog
+        ]
+        selected_labels = st.multiselect(
+            "Selecciona hasta 3 Suites base",
+            suite_labels,
+            max_selections=3,
+            key="azure_reference_suite_multi_select",
+        )
+        selected_suites = [reference_catalog[suite_labels.index(label)] for label in selected_labels]
+        st.session_state.azure_reference_selected_suites = selected_suites
+
+        if selected_suites:
+            st.info(f"Suites seleccionadas: {len(selected_suites)}/3. Estas referencias aportarán navegación, terminología y nivel de detalle; no reglas funcionales.")
+        if st.button("🔎 Cargar Test Cases de las Suites seleccionadas", key="azure_reference_load_three"):
+            if not selected_suites:
+                st.warning("⚠️ Selecciona al menos una Suite.")
+            else:
+                details = []
+                errors = []
+                with st.spinner("Leyendo Test Cases de las Suites seleccionadas..."):
+                    for suite in selected_suites:
+                        try:
+                            cases = list_test_cases(suite.get("plan_id"), suite.get("id"))
+                            for case in cases:
+                                try:
+                                    detail = get_test_case_detail(case.get("id"))
+                                    detail["_suite_id"] = safe_text(suite.get("id"))
+                                    detail["_suite_name"] = safe_text(suite.get("name"))
+                                    detail["_plan_id"] = safe_text(suite.get("plan_id"))
+                                    details.append(detail)
+                                except Exception as exc:
+                                    errors.append(f"{case.get('id')}: {exc}")
+                        except Exception as exc:
+                            errors.append(f"Suite {suite.get('id')}: {exc}")
+                st.session_state.azure_reference_details = details
+                st.session_state.azure_reference_source_text = _build_reference_navigation_source(details, selected_suites)
+                st.session_state.azure_reference_plan_id = selected_suites[0].get("plan_id")
+                st.session_state.azure_reference_suite_id = selected_suites[0].get("id")
+                st.session_state.azure_reference_case_ids = [safe_text(d.get("id")) for d in details if safe_text(d.get("id"))]
+                st.session_state.azure_reference_analysis = _analyze_reference_details(details)
+                if errors:
+                    st.warning(f"⚠️ Se cargaron {len(details)} Test Cases de referencia; hubo {len(errors)} lecturas no disponibles.")
+                else:
+                    st.success(f"✅ Se cargaron {len(details)} Test Cases de las {len(selected_suites)} Suite(s) seleccionadas.")
+                if len(selected_suites) < 3:
+                    st.warning("⚠️ Hay menos de 3 Suites seleccionadas. La generación continuará con las disponibles y dejará ALERTA.")
+        st.divider(); st.subheader("🔐 Azure DevOps")
     st.caption("Prueba de conexión y consultas de referencia en modo solo lectura. No crean ni modifican CP.")
     if st.button("🔌 Probar conexión con Azure DevOps", key="azure_test_connection"):
         try:
