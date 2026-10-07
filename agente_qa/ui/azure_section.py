@@ -345,8 +345,20 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     if selection_mode == "Un solo CP": selected_publish_ids = [st.selectbox("CP a cargar", labels, format_func=lambda x: f"{x} — {build_case_title(publish_case_map[x], x, suite_name=safe_text(publish_case_map[x].get('SUITE_NAME'), st.session_state.get('qa_generation_suite_name', '')))[:100]}", key="azure_publish_single_case")] if labels else []
     elif selection_mode == "Seleccionar varios CP": selected_publish_ids = st.multiselect("Selecciona los CP que deseas cargar", labels, format_func=lambda x: f"{x} — {build_case_title(publish_case_map[x], x, suite_name=safe_text(publish_case_map[x].get('SUITE_NAME'), st.session_state.get('qa_generation_suite_name', '')))[:100]}", key="azure_publish_multi_cases")
     else: selected_publish_ids = labels; st.info(f"Se cargarán los {len(selected_publish_ids)} CP generados actualmente.")
-    target_plans = st.session_state.get("azure_reference_plans", []) or []
-    if not target_plans: st.warning("⚠️ Primero consulta los 10 Test Plans más recientes para seleccionar el destino."); return
+    all_target_plans = st.session_state.get("azure_reference_plans", []) or []
+    target_plans = [
+        plan for plan in all_target_plans
+        if any(
+            term in " ".join(
+                safe_text(plan.get(key))
+                for key in ("name", "area_path", "iteration")
+            ).casefold()
+            for term in ("colectiv", "autos")
+        )
+    ]
+    if not target_plans:
+        st.warning("⚠️ No hay un Test Plan destino identificado dentro del alcance Colectivos Autos. La creación queda bloqueada para evitar operar sobre otro módulo.")
+        return
     plan_labels = [f"{p.get('id')} — {_ui(p.get('name'), 'Sin nombre')}" for p in target_plans]; target_plan = target_plans[plan_labels.index(st.selectbox("Test Plan destino", plan_labels, key="azure_publish_target_plan"))]; target_plan_id = str(target_plan.get("id"))
     if st.session_state.get("azure_target_plan_id") != target_plan_id:
         st.session_state.azure_target_plan_id = target_plan_id; st.session_state.azure_target_suite_id = None
