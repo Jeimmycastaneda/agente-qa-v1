@@ -52,6 +52,7 @@ with st.sidebar:
         azure_error_type=AzureDevOpsError,
         list_test_plans=list_test_plans,
         list_test_suites=list_test_suites,
+        list_reference_suites_current_year=list_reference_suites_current_year,
         list_test_cases=list_test_cases,
         get_test_case_detail=get_test_case_detail,
         delete_test_case=None,
@@ -90,8 +91,11 @@ source_text = render_document_section(extract_source)
 # La evidencia del cotizador se agrega como contexto técnico de navegación.
 # Gemini debe seguir usando la HU como fuente funcional y no inventar reglas.
 cotizador_source = st.session_state.get("cotizador_source_text", "")
+reference_source = st.session_state.get("azure_reference_source_text", "")
 if cotizador_source:
     source_text = f"{source_text}\n\n{cotizador_source}".strip()
+if reference_source:
+    source_text = f"{source_text}\n\n{reference_source}".strip()
 
 render_generation_section(
     generate_qa_data=generate_qa_data,
