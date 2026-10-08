@@ -239,12 +239,22 @@ def create_azure_test_case_work_item(tc, target_plan):
         )
 
     id_padre_value = int(id_padre) if id_padre.isdigit() else id_padre
+    owner = target_plan.get("owner") if isinstance(target_plan.get("owner"), dict) else {}
+    assigned_to = safe_text(owner.get("uniqueName"), owner.get("displayName"))
+    if not assigned_to:
+        raise AzureDevOpsError(
+            "No se puede crear el CP: el Test Plan seleccionado no tiene un usuario "
+            "propietario identificable. El CP no se asignará al usuario actual; "
+            "verifica el propietario del Test Plan en Azure DevOps."
+        )
+
     patch = [
         {"op": "add", "path": "/fields/System.Title", "value": title},
         {"op": "add", "path": "/fields/System.Description", "value": _azure_description_html(description)},
         {"op": "add", "path": "/fields/Microsoft.VSTS.TCM.Steps", "value": _azure_steps_xml(safe_steps(tc))},
         {"op": "add", "path": "/fields/Custom.IDPadre", "value": id_padre_value},
         {"op": "add", "path": "/fields/Custom.TipoOrigenProyecto", "value": tipo_origen},
+        {"op": "add", "path": "/fields/System.AssignedTo", "value": assigned_to},
     ]
     area_path = safe_text(target_plan.get("area_path"))
     iteration = safe_text(target_plan.get("iteration"))
@@ -352,10 +362,26 @@ def test_connection():
 def list_test_plans(limit=10):
     cfg = _az_config()
     _az_validate(cfg)
-    params = urlencode({"api-version": "7.1", "$top": int(limit)})
+    params = urlencode({"api-version": "7.1", "includePlanDetails": "true", "$top": int(limit)})
     payload, _ = _az_get_json(_az_testplan_url(cfg, "plans") + "?" + params, cfg["pat"])
     plans = sorted(payload.get("value") or [], key=lambda x: int(x.get("id") or 0), reverse=True)[:int(limit)]
-    rows = [{"id": p.get("id"), "name": _ui_text(p.get("name"), "Sin nombre"), "state": p.get("state", ""), "area_path": p.get("areaPath", ""), "iteration": p.get("iteration", ""), "start_date": p.get("startDate", ""), "end_date": p.get("endDate", "")} for p in plans]
+    rows = []
+    for p in plans:
+        owner = p.get("owner") if isinstance(p.get("owner"), dict) else {}
+        rows.append({
+            "id": p.get("id"),
+            "name": _ui_text(p.get("name"), "Sin nombre"),
+            "state": p.get("state", ""),
+            "area_path": p.get("areaPath", ""),
+            "iteration": p.get("iteration", ""),
+            "start_date": p.get("startDate", ""),
+            "end_date": p.get("endDate", ""),
+            "owner": {
+                "id": owner.get("id", ""),
+                "display_name": _ui_text(owner.get("displayName")),
+                "unique_name": _ui_text(owner.get("uniqueName")),
+            },
+        })
     return {"ok": True, "organization": cfg["org"], "project": cfg["project"], "count": len(rows), "plans": rows, "message": "Consulta correcta. Solo se consultaron los 10 Test Plans más recientes por ID; no se creó, modificó ni eliminó ningún recurso."}
 
 
