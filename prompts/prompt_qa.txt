@@ -102,7 +102,9 @@ REGLA 17 — CASO DE USO RELACIONADO
 Cada CP debe tener exactamente un Caso de uso relacionado.
 
 REGLA 18 — AZURE RELATED WORK
-Cuando se genere el campo de relación para Azure, el Parent ID debe corresponder al ID de la Suite seleccionada.
+- La Suite seleccionada es el destino del Test Case dentro del Test Plan y se utiliza para la asociación en Azure DevOps.
+- El campo Custom.IDPadre corresponde al ID del CU/Work Item funcional relacionado cuando este dato sea requerido por Azure; no sustituirlo por el ID del Test Plan ni por el ID de la Suite.
+- La asociación a la Suite debe realizarse mediante la operación de Test Plans posterior a la creación del Work Item.
 
 REGLA 19 — VALIDACIÓN ANTES DE ENTREGAR
 Validar: identificación de todos los CU, clasificación de interfaz, cobertura de todos los CU elegibles, un CU por CP, Related Use Case válido, IDs y títulos, ausencia de |, Description completa, Preconditions, Expected Result, Steps ejecutables y ausencia de información inventada.
