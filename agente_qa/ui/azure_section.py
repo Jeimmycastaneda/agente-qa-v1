@@ -368,7 +368,13 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     if not target_plans:
         st.warning("⚠️ No hay un Test Plan destino identificado dentro del alcance Colectivos Autos. La creación queda bloqueada para evitar operar sobre otro módulo.")
         return
-    plan_labels = [f"{p.get('id')} — {_ui(p.get('name'), 'Sin nombre')}" for p in target_plans]; target_plan = target_plans[plan_labels.index(st.selectbox("Test Plan destino", plan_labels, key="azure_publish_target_plan"))]; target_plan_id = str(target_plan.get("id"))
+    plan_labels = [f"{p.get('id')} — {_ui(p.get('name'), 'Sin nombre')}" for p in target_plans]
+    selected_target_plan_label = st.selectbox("Test Plan destino", plan_labels, key="azure_publish_target_plan")
+    target_plan = target_plans[plan_labels.index(selected_target_plan_label)]
+    target_plan_id = str(target_plan.get("id"))
+    plan_owner = target_plan.get("owner") if isinstance(target_plan.get("owner"), dict) else {}
+    plan_owner_name = _ui(plan_owner.get("display_name"), plan_owner.get("unique_name"), "No identificado")
+    st.info(f"👤 Los nuevos CP se asignarán al usuario propietario del Test Plan: **{plan_owner_name}**")
     if st.session_state.get("azure_target_plan_id") != target_plan_id:
         st.session_state.azure_target_plan_id = target_plan_id; st.session_state.azure_target_suite_id = None
         try:
@@ -439,7 +445,10 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     if not safe_text(st.session_state.get("azure_id_padre")): st.warning("⚠️ Falta IDPadre. La creación queda bloqueada porque Azure lo exige.")
     st.markdown("### 2️⃣ Revisar y confirmar creación")
     st.dataframe(pd.DataFrame([{"CP": cp_id, "Título": build_case_title(publish_case_map[cp_id], cp_id, suite_name=suite_name), "Caso de Uso": safe_text(publish_case_map[cp_id].get("Related Use Case"), "Pendiente"), "Steps": len(safe_steps(publish_case_map[cp_id]))} for cp_id in selected_publish_ids]), width="stretch", hide_index=True)
-    st.warning("⚠️ La sincronización modifica Azure DevOps: crea los Test Cases y los asocia a la Suite seleccionada.")
+    st.warning(
+        "⚠️ La sincronización modifica Azure DevOps: crea los Test Cases, "
+        "los asigna al propietario del Test Plan seleccionado y los asocia a la Suite seleccionada."
+    )
     confirm = st.checkbox("Confirmo que los CP, Test Plan, Suite, IDPadre y Tipo Origen Proyecto son correctos y autorizo la creación en Azure.", key="azure_publish_confirm")
     if st.button("🔄 Sincronizar con Azure DevOps", type="primary", disabled=not (ready and confirm), key="azure_publish_execute"):
         try:
