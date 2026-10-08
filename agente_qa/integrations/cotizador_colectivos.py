@@ -72,12 +72,48 @@ def inspect_cotizador_colectivos(
                 if current not in pages:
                     pages.append(current)
 
+                # Capturar evidencia de navegación con mayor precisión, sin salir del alcance autorizado.
                 links = page.locator("a:visible, button:visible")
                 scoped_labels = []
-                for index in range(min(links.count(), 100)):
-                    label = links.nth(index).inner_text().strip()
-                    if label and _in_scope(label) and label not in scoped_labels:
-                        scoped_labels.append(label)
+                navigation_items = []
+                for index in range(min(links.count(), 150)):
+                    element = links.nth(index)
+                    label = element.inner_text().strip()
+                    aria = (element.get_attribute("aria-label") or "").strip()
+                    title = (element.get_attribute("title") or "").strip()
+                    href = (element.get_attribute("href") or "").strip()
+                    visible_name = label or aria or title
+                    if not visible_name:
+                        continue
+                    if _in_scope(visible_name) or _in_scope(href):
+                        if visible_name not in scoped_labels:
+                            scoped_labels.append(visible_name)
+                        navigation_items.append(
+                            f"Nombre: {visible_name}; Tipo: {element.evaluate(\"el => el.tagName\")}; "
+                            f"Destino: {href or 'acción visible sin enlace'}"
+                        )
+
+                headings = []
+                for selector in ("h1:visible", "h2:visible", "h3:visible", "[role='heading']:visible"):
+                    locator = page.locator(selector)
+                    for index in range(min(locator.count(), 30)):
+                        text_value = locator.nth(index).inner_text().strip()
+                        if text_value and text_value not in headings:
+                            headings.append(text_value)
+
+                controls = []
+                for selector in ("input:visible", "select:visible", "textarea:visible"):
+                    locator = page.locator(selector)
+                    for index in range(min(locator.count(), 80)):
+                        element = locator.nth(index)
+                        name = (element.get_attribute("name") or "").strip()
+                        aria = (element.get_attribute("aria-label") or "").strip()
+                        placeholder = (element.get_attribute("placeholder") or "").strip()
+                        value = name or aria or placeholder
+                        if value and (_in_scope(value) or _in_scope(element.get_attribute("id") or "")):
+                            controls.append(
+                                f"Control: {value}; Tipo: {element.get_attribute('type') or element.evaluate(\"el => el.tagName\")}"
+                            )
 
                 body = page.locator("body").inner_text(timeout=10000)
                 scoped_body = [
@@ -88,10 +124,14 @@ def inspect_cotizador_colectivos(
 
                 chunks.append(
                     f"URL: {current}\n"
-                    "ELEMENTOS VISIBLES DEL MODULO COLECTIVOS AUTOS: "
-                    + " | ".join(scoped_labels)
-                    + "\nEVIDENCIA VISIBLE DEL MODULO:\n"
-                    + "\n".join(scoped_body[:200])
+                    "ELEMENTOS DE NAVEGACION VISIBLES:\n"
+                    + "\n".join(navigation_items[:120])
+                    + "\nENCABEZADOS/PANTALLAS VISIBLES:\n"
+                    + "\n".join(headings[:50])
+                    + "\nCONTROLES VISIBLES RELEVANTES:\n"
+                    + "\n".join(controls[:80])
+                    + "\nEVIDENCIA VISIBLE DEL MODULO COLECTIVOS AUTOS:\n"
+                    + "\n".join(scoped_body[:250])
                 )
 
                 navigable = page.locator("a:visible[href]")
