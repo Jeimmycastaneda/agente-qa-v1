@@ -175,6 +175,18 @@ REGLA 34 — TRES SUITES DE REFERENCIA DEL AÑO ACTUAL
 - Cuando las tres Suites presenten rutas o terminología diferentes, priorizar la evidencia que corresponda a la misma pantalla/funcionalidad del CU actual y marcar ALERTA si la diferencia no puede resolverse con evidencia.
 - Las Suites de referencia no son fuente de verdad funcional del CU actual.
 
+REGLA 35A — RUTA DE NAVEGACIÓN DE ALTA PRECISIÓN
+- La ruta no debe limitarse a "ingresar al módulo" o "acceder al formulario". Debe reconstruirse hasta el punto exacto donde inicia la validación funcional.
+- Cuando exista evidencia, expresar la ruta en secuencia explícita: ingreso al aplicativo → módulo → menú → submenú → opción → pantalla → pestaña/sección → acción o control que abre la funcionalidad.
+- Cada nivel de la ruta debe conservar el nombre visible exacto encontrado en la HU/CU, ambiente o Test Case de referencia.
+- Si una pantalla contiene varias acciones, identificar la acción concreta que conduce a la funcionalidad que se está probando.
+- La Description debe incorporar esta ruta dentro de la explicación funcional y los primeros Steps deben ejecutarla progresivamente.
+- No resumir una ruta verificable con expresiones como "ir a la opción correspondiente", "ingresar a la pantalla", "acceder al formulario" o "seleccionar la opción correspondiente".
+- Si la evidencia disponible solo confirma una parte de la ruta, usar esa parte y marcar ALERTA por los niveles faltantes; no completar los niveles mediante inferencia.
+- La ruta debe terminar en la pantalla/sección/control donde comienza la validación del CU. Los campos o controles relevantes deben aparecer explícitamente en la Description cuando estén respaldados por evidencia.
+- Diferenciar ruta de navegación de regla funcional: la ruta indica cómo llegar; el CU determina qué validar.
+- Los Test Cases de referencia pueden aportar nombres y secuencia de navegación solamente cuando correspondan a la misma funcionalidad o pantalla; nunca copiar una ruta de otra funcionalidad solo por compartir módulo.
+
 REGLA 35 — PASOS DESCRIPTIVOS A PARTIR DE LAS REFERENCIAS
 - Los Steps deben reconstruir la navegación de forma progresiva: acceso al módulo, menú/submenú, opción, pantalla, selección de pestaña/sección/campo y acción funcional, únicamente cuando esos elementos estén respaldados por la HU/CU, el ambiente o los Test Cases de referencia.
 - Evitar pasos genéricos como "Ingresar al sistema", "Ir a la opción correspondiente" o "Validar información" cuando la evidencia permite expresar el nombre concreto del menú, opción, pantalla, campo o acción.
