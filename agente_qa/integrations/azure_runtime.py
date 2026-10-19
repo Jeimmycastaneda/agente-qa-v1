@@ -564,3 +564,125 @@ def get_test_case_detail(test_case_id):
     payload, _ = _az_get_json(url, cfg["pat"])
     fields = payload.get("fields") or {}
     return {"id": payload.get("id"), "title": fields.get("System.Title", ""), "description": fields.get("System.Description", "") or "", "steps": _az_parse_steps_xml(fields.get("Microsoft.VSTS.TCM.Steps", "") or ""), "area_path": fields.get("System.AreaPath", ""), "iteration_path": fields.get("System.IterationPath", ""), "state": fields.get("System.State", ""), "work_item_type": fields.get("System.WorkItemType", "Test Case"), "raw_fields": fields}
+
+def create_test_plan(name, area_path, iteration_path, description=""):
+    """Crea un Test Plan después de validaciones de nombre y alcance del proyecto."""
+    cfg = _az_config()
+    _az_validate(cfg)
+    name = safe_text(name).strip()
+    area_path = safe_text(area_path).strip()
+    iteration_path = safe_text(iteration_path).strip()
+    description = safe_text(description).strip()
+    if not name:
+        raise AzureDevOpsError("El nombre del Test Plan es obligatorio.")
+    if not area_path:
+        raise AzureDevOpsError("El Area Path es obligatorio.")
+    if not iteration_path:
+        raise AzureDevOpsError("El Iteration Path es obligatorio.")
+
+    # Verificación defensiva de duplicados antes de la escritura.
+    params = urlencode({"api-version": "7.1", "$top": 100})
+    existing_payload, _ = _az_get_json(
+        _az_testplan_url(cfg, "plans") + "?" + params, cfg["pat"]
+    )
+    normalized_name = re.sub(r"\\s+", " ", name).strip().casefold()
+    duplicates = [
+        plan for plan in (existing_payload.get("value") or [])
+        if re.sub(r"\\s+", " ", safe_text(plan.get("name"))).strip().casefold() == normalized_name
+    ]
+    if duplicates:
+        ids = ", ".join(str(plan.get("id")) for plan in duplicates)
+        raise AzureDevOpsError(
+            f"Ya existe un Test Plan con el nombre '{name}' (ID: {ids}). "
+            "No se creó otro recurso."
+        )
+
+    payload = {"name": name, "areaPath": area_path, "iteration": iteration_path}
+    if description:
+        payload["description"] = description
+    created, _ = _az_request_json(
+        _az_testplan_url(cfg, "plans") + "?api-version=7.1-preview.1",
+        cfg["pat"], method="POST", payload=payload,
+    )
+    plan_id = created.get("id")
+    if not plan_id:
+        raise AzureDevOpsError(
+            "Azure respondió a la creación, pero no devolvió un ID de Test Plan. "
+            "Consulta Azure DevOps antes de volver a intentarlo para evitar duplicados."
+        )
+    return {
+        "id": plan_id,
+        "name": _ui_text(created.get("name"), name),
+        "area_path": created.get("areaPath", area_path),
+        "iteration": created.get("iteration", iteration_path),
+        "root_suite_id": (created.get("rootSuite") or {}).get("id")
+        if isinstance(created.get("rootSuite"), dict) else None,
+        "message": "Test Plan creado correctamente en el proyecto configurado.",
+    }
+
+
+def create_test_suite(plan_id, name, parent_suite_id=None):
+    """Crea una Suite estática en el Test Plan indicado; no crea ni cambia otros planes."""
+    cfg = _az_config()
+    _az_validate(cfg)
+    name = safe_text(name).strip()
+    if not str(plan_id or "").strip().isdigit():
+        raise AzureDevOpsError("Selecciona un Test Plan válido.")
+    if not name:
+        raise AzureDevOpsError("El nombre de la Test Suite es obligatorio.")
+
+    plan_id = int(plan_id)
+    existing_suites = list_test_suites(plan_id)
+    normalized_name = re.sub(r"\\s+", " ", name).strip().casefold()
+    duplicates = [
+        suite for suite in existing_suites
+        if re.sub(r"\\s+", " ", safe_text(suite.get("name"))).strip().casefold() == normalized_name
+    ]
+    if duplicates:
+        ids = ", ".join(str(suite.get("id")) for suite in duplicates)
+        raise AzureDevOpsError(
+            f"Ya existe una Suite con el nombre '{name}' en el Test Plan {plan_id} "
+            f"(ID(s): {ids}). No se creó otra."
+        )
+
+    if parent_suite_id is not None and str(parent_suite_id).strip():
+        if not str(parent_suite_id).strip().isdigit():
+            raise AzureDevOpsError("La Suite padre seleccionada no tiene un ID válido.")
+        parent_id = int(parent_suite_id)
+    else:
+        plan_url = _az_testplan_url(cfg, f"Plans/{quote(str(plan_id), safe='')}")
+        plan_details, _ = _az_get_json(plan_url + "?api-version=7.1", cfg["pat"])
+        root_suite = plan_details.get("rootSuite") if isinstance(plan_details.get("rootSuite"), dict) else {}
+        parent_id = root_suite.get("id")
+        if not parent_id:
+            raise AzureDevOpsError(
+                "Azure no devolvió la Suite raíz del Test Plan. No se creó la Suite; "
+                "consulta el plan en Azure DevOps y vuelve a intentarlo."
+            )
+        parent_id = int(parent_id)
+
+    payload = {
+        "name": name,
+        "suiteType": "StaticTestSuite",
+        "parentSuite": {"id": parent_id},
+    }
+    path = f"Plans/{quote(str(plan_id), safe='')}/suites"
+    created, _ = _az_request_json(
+        _az_testplan_url(cfg, path) + "?api-version=7.1-preview.1",
+        cfg["pat"], method="POST", payload=payload,
+    )
+    suite_id = created.get("id")
+    if not suite_id:
+        raise AzureDevOpsError(
+            "Azure respondió a la creación, pero no devolvió un ID de Suite. "
+            "Consulta Azure DevOps antes de volver a intentarlo para evitar duplicados."
+        )
+    return {
+        "id": suite_id,
+        "name": _ui_text(created.get("name"), name),
+        "plan_id": plan_id,
+        "parent_suite_id": parent_id,
+        "suite_type": created.get("suiteType", "StaticTestSuite"),
+        "message": "Test Suite creada y asociada al Test Plan seleccionado.",
+    }
+
