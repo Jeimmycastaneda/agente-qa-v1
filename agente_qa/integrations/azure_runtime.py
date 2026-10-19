@@ -585,10 +585,10 @@ def create_test_plan(name, area_path, iteration_path, description=""):
     existing_payload, _ = _az_get_json(
         _az_testplan_url(cfg, "plans") + "?" + params, cfg["pat"]
     )
-    normalized_name = re.sub(r"\\s+", " ", name).strip().casefold()
+    normalized_name = re.sub(r"\s+", " ", name).strip().casefold()
     duplicates = [
         plan for plan in (existing_payload.get("value") or [])
-        if re.sub(r"\\s+", " ", safe_text(plan.get("name"))).strip().casefold() == normalized_name
+        if re.sub(r"\s+", " ", safe_text(plan.get("name"))).strip().casefold() == normalized_name
     ]
     if duplicates:
         ids = ", ".join(str(plan.get("id")) for plan in duplicates)
@@ -633,10 +633,10 @@ def create_test_suite(plan_id, name, parent_suite_id=None):
 
     plan_id = int(plan_id)
     existing_suites = list_test_suites(plan_id)
-    normalized_name = re.sub(r"\\s+", " ", name).strip().casefold()
+    normalized_name = re.sub(r"\s+", " ", name).strip().casefold()
     duplicates = [
         suite for suite in existing_suites
-        if re.sub(r"\\s+", " ", safe_text(suite.get("name"))).strip().casefold() == normalized_name
+        if re.sub(r"\s+", " ", safe_text(suite.get("name"))).strip().casefold() == normalized_name
     ]
     if duplicates:
         ids = ", ".join(str(suite.get("id")) for suite in duplicates)
