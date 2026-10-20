@@ -267,17 +267,61 @@ def _az_testplan_url(cfg, path):
 
 
 def add_test_cases_to_suite(plan_id, suite_id, work_item_ids):
+    """Asocia los Test Case creados a la Suite seleccionada y valida la respuesta.
+
+    Usa el endpoint de Azure DevOps Test (Test Suites - Add), cuyo contrato
+    recibe los IDs de los casos separados por comas en la URL.
+    """
     cfg = _az_config()
     _az_validate(cfg)
-    if not work_item_ids:
+    ids = list(dict.fromkeys(int(wid) for wid in (work_item_ids or []) if str(wid).strip()))
+    if not ids:
         return []
-    path = f"Plans/{quote(str(plan_id), safe='')}/Suites/{quote(str(suite_id), safe='')}/TestCase"
-    payload, _ = _az_request_json(
-        _az_testplan_url(cfg, path) + "?api-version=7.1",
-        cfg["pat"], method="POST",
-        payload=[{"workItem": {"id": int(wid)}} for wid in work_item_ids],
+
+    org = quote(cfg["org"], safe="")
+    project = quote(cfg["project"], safe="")
+    ids_path = ",".join(str(wid) for wid in ids)
+    url = (
+        f"https://dev.azure.com/{org}/{project}/_apis/test/Plans/"
+        f"{quote(str(plan_id), safe='')}/suites/{quote(str(suite_id), safe='')}/"
+        f"testcases/{ids_path}?api-version=7.1-preview.3"
     )
-    return payload.get("value", payload if isinstance(payload, list) else [])
+    payload, _ = _az_request_json(url, cfg["pat"], method="POST", payload=None)
+    rows = payload.get("value", payload if isinstance(payload, list) else [])
+    returned_ids = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        test_case = row.get("testCase") if isinstance(row.get("testCase"), dict) else {}
+        raw_id = test_case.get("id") or row.get("id")
+        if raw_id is not None:
+            returned_ids.add(str(raw_id))
+    missing_ids = [str(wid) for wid in ids if str(wid) not in returned_ids]
+    if missing_ids:
+        # Confirmar la asociación con una consulta de lectura antes de reportar éxito.
+        verify_url = (
+            f"https://dev.azure.com/{org}/{project}/_apis/test/Plans/"
+            f"{quote(str(plan_id), safe='')}/suites/{quote(str(suite_id), safe='')}/"
+            f"testcases/{','.join(missing_ids)}?api-version=7.1"
+        )
+        verified, _ = _az_get_json(verify_url, cfg["pat"])
+        verified_rows = verified.get("value", verified if isinstance(verified, list) else [])
+        verified_ids = set()
+        for row in verified_rows:
+            if not isinstance(row, dict):
+                continue
+            test_case = row.get("testCase") if isinstance(row.get("testCase"), dict) else {}
+            raw_id = test_case.get("id") or row.get("id")
+            if raw_id is not None:
+                verified_ids.add(str(raw_id))
+        still_missing = [wid for wid in missing_ids if wid not in verified_ids]
+        if still_missing:
+            raise AzureDevOpsError(
+                "Azure no confirmó la asociación de estos Test Case a la Suite "
+                f"{suite_id} del Test Plan {plan_id}: {', '.join(still_missing)}. "
+                "Los Work Items pueden existir en el proyecto, pero no se marcarán como asociados."
+            )
+    return rows
 
 
 def create_selected_cases_in_azure(cases, target_plan, target_suite):
