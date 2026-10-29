@@ -240,12 +240,19 @@ def create_azure_test_case_work_item(tc, target_plan):
 
     id_padre_value = int(id_padre) if id_padre.isdigit() else id_padre
     owner = target_plan.get("owner") if isinstance(target_plan.get("owner"), dict) else {}
-    assigned_to = safe_text(owner.get("uniqueName"), owner.get("displayName"))
+    # La UI prepara el propietario con snake_case; también admitir camelCase
+    # por compatibilidad con respuestas directas de Azure DevOps.
+    assigned_to = safe_text(
+        owner.get("unique_name"),
+        owner.get("uniqueName"),
+        owner.get("display_name"),
+        owner.get("displayName"),
+    )
     if not assigned_to:
         raise AzureDevOpsError(
-            "No se puede crear el CP: el Test Plan seleccionado no tiene un usuario "
-            "propietario identificable. El CP no se asignará al usuario actual; "
-            "verifica el propietario del Test Plan en Azure DevOps."
+            "No se puede crear el CP: no se identificó un usuario en el campo "
+            "“Propietario al que se asignarán los CP”. Selecciona un propietario "
+            "válido antes de publicar."
         )
 
     patch = [
