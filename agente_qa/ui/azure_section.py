@@ -383,13 +383,50 @@ def render_azure_publish(*, result, selected_config, list_test_plans, list_test_
     selected_target_plan_label = st.selectbox("Test Plan destino", plan_labels, key="azure_publish_target_plan")
     target_plan = target_plans[plan_labels.index(selected_target_plan_label)]
     target_plan_id = str(target_plan.get("id"))
+    # Ofrecer propietarios identificados en los Test Plans consultados para elegir
+    # explícitamente el usuario de asignación, sin asumir que debe ser el dueño del plan.
+    available_owners = {}
+    for plan in all_target_plans:
+        owner = plan.get("owner") if isinstance(plan.get("owner"), dict) else {}
+        unique_name = _ui(owner.get("unique_name"))
+        display_name = _ui(owner.get("display_name"), unique_name)
+        if unique_name:
+            available_owners[unique_name] = {
+                "unique_name": unique_name,
+                "display_name": display_name or unique_name,
+            }
     plan_owner = target_plan.get("owner") if isinstance(target_plan.get("owner"), dict) else {}
-    plan_owner_name = (
-        _ui(plan_owner.get("display_name"))
-        or _ui(plan_owner.get("unique_name"))
-        or "No identificado"
+    current_owner = _ui(plan_owner.get("unique_name"))
+    if current_owner and current_owner not in available_owners:
+        available_owners[current_owner] = {
+            "unique_name": current_owner,
+            "display_name": _ui(plan_owner.get("display_name"), current_owner),
+        }
+    owner_options = sorted(
+        available_owners,
+        key=lambda value: available_owners[value]["display_name"].casefold(),
     )
-    st.info(f"👤 Los nuevos CP se asignarán al usuario propietario del Test Plan: **{plan_owner_name}**")
+    if not owner_options:
+        st.warning("⚠️ Azure no devolvió propietarios seleccionables para los Test Plans consultados. Actualiza los Test Plans; la creación queda bloqueada hasta identificar un usuario.")
+        return
+    preferred_owner = current_owner if current_owner in owner_options else owner_options[0]
+    selected_owner_unique_name = st.selectbox(
+        "Propietario al que se asignarán los CP",
+        owner_options,
+        index=owner_options.index(preferred_owner),
+        format_func=lambda value: (
+            f"{available_owners[value]['display_name']} — {value}"
+        ),
+        key="azure_publish_owner",
+        help="La lista contiene usuarios identificados como propietarios de los Test Plans consultados en Azure DevOps.",
+    )
+    selected_owner = available_owners[selected_owner_unique_name]
+    target_plan_for_creation = dict(target_plan)
+    target_plan_for_creation["owner"] = {
+        "unique_name": selected_owner["unique_name"],
+        "display_name": selected_owner["display_name"],
+    }
+    st.info(f"👤 Los nuevos CP se asignarán a: **{selected_owner['display_name']}**")
     refresh_suites = st.button("🔄 Actualizar Suites del Test Plan seleccionado", key="azure_publish_refresh_suites")
     if st.session_state.get("azure_target_plan_id") != target_plan_id or refresh_suites:
         st.session_state.azure_target_plan_id = target_plan_id
@@ -483,7 +520,7 @@ def render_azure_publish(*, result, selected_config, list_test_plans, list_test_
 
             with st.spinner(f"Creando y asociando {len(selected_cases)} Test Case(s) con Azure DevOps..."):
                 st.session_state.azure_publish_results = create_selected_cases_in_azure(
-                    selected_cases, target_plan, target_suite
+                    selected_cases, target_plan_for_creation, target_suite
                 )
             st.rerun()
         except Exception as exc: st.error(f"❌ No se pudo completar la sincronización con Azure: {exc}")
