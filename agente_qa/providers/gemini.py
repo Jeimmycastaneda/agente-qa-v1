@@ -11,7 +11,10 @@ import time
 import streamlit as st
 
 from agente_qa.utils import safe_text
-from agente_qa.validation import validate_minimum_cu_coverage
+from agente_qa.validation import (
+    calculate_cu_coverage,
+    validate_minimum_cu_coverage,
+)
 
 try:
     from google import genai
@@ -158,6 +161,145 @@ def _generate_once(client, model_name, full_prompt, temperature=0.1):
     return models.generate_content(model=model_name, contents=full_prompt, config=config)
 
 
+def _parse_gemini_json(response_text, model_name):
+    """Convierte la respuesta de Gemini a JSON sin alterar su contenido."""
+    response_text = (response_text or "").strip()
+
+    if not response_text:
+        raise RuntimeError(
+            f"{model_name}: Gemini devolvió una respuesta vacía."
+        )
+
+    try:
+        return json.loads(response_text)
+    except json.JSONDecodeError:
+        match = re.search(
+            r"```(?:json)?\s*([\s\S]*?)\s*```",
+            response_text,
+        )
+        if not match:
+            raise RuntimeError(
+                f"{model_name}: la respuesta no es JSON válido. "
+                f"Respuesta: {response_text[:1200]}"
+            )
+        return json.loads(match.group(1))
+
+
+def _build_missing_cu_repair_prompt(full_prompt, data, missing_cu):
+    """Solicita únicamente los CP faltantes, sin regenerar los existentes."""
+    missing_text = "\n".join(
+        f'- {cu["id"]}: {cu["name"]}'
+        for cu in missing_cu
+    )
+
+    existing_ids = [
+        str(tc.get("ID", "")).strip()
+        for tc in data.get("TEST_CASES", [])
+        if str(tc.get("ID", "")).strip()
+    ]
+
+    existing_titles = [
+        str(tc.get("Title", "")).strip()
+        for tc in data.get("TEST_CASES", [])
+        if str(tc.get("Title", "")).strip()
+    ]
+
+    return (
+        full_prompt
+        + "\n\n=== RECUPERACIÓN CONTROLADA DE COBERTURA ===\n"
+        + "La generación inicial dejó estos CU elegibles sin CP:\n"
+        + missing_text
+        + "\nGenera exclusivamente los casos de prueba que faltan para esos CU. "
+        + "No regeneres, modifiques ni repitas los casos existentes. "
+        + "Utiliza únicamente información explícita de la fuente original. "
+        + "Cada CP debe relacionarse con exactamente un CU objetivo mediante "
+        + "su identificador exacto en Related Use Case. "
+        + "No generes CP para otros CU ni inventes comportamientos. "
+        + "Devuelve el JSON completo con las claves USE_CASES, TEST_CASES, "
+        + "ALERTS y COVERAGE. Incluye la clasificación completa de los CU "
+        + "y únicamente los CP nuevos en TEST_CASES. "
+        + "\nIDs de CP existentes (no repetir): "
+        + json.dumps(existing_ids, ensure_ascii=False)
+        + "\nTítulos existentes (no repetir): "
+        + json.dumps(existing_titles, ensure_ascii=False)
+    )
+
+
+
+def _merge_repaired_cases(original, repair, missing_cu):
+    """Agrega CP faltantes sin modificar ni duplicar los originales."""
+    missing_ids = {
+        str(cu["id"]).strip().upper().replace("_", "-").replace(" ", "-")
+        for cu in missing_cu
+    }
+
+    existing_cases = list(original.get("TEST_CASES", []))
+    existing_ids = {
+        str(tc.get("ID", "")).strip().casefold()
+        for tc in existing_cases
+        if str(tc.get("ID", "")).strip()
+    }
+    existing_titles = {
+        " ".join(str(tc.get("Title", "")).split()).casefold()
+        for tc in existing_cases
+        if str(tc.get("Title", "")).strip()
+    }
+
+    additions = []
+    for tc in repair.get("TEST_CASES", []):
+        relation = str(
+            tc.get("Related Use Case")
+            or tc.get("related_use_case")
+            or tc.get("use_case")
+            or tc.get("Requirement / Use Case")
+            or tc.get("Caso de uso relacionado")
+            or ""
+        )
+
+        found_ids = {
+            match.upper().replace("_", "-").replace(" ", "-")
+            for match in re.findall(
+                r"\bCU[-_ ]?\d+\b",
+                relation,
+                flags=re.IGNORECASE,
+            )
+        }
+
+        if len(found_ids) != 1 or not found_ids.issubset(missing_ids):
+            raise ValueError(
+                "Recuperación rechazada: un CP nuevo no está asociado "
+                "exclusivamente a un CU faltante."
+            )
+
+        case_id = str(tc.get("ID", "")).strip().casefold()
+        title = " ".join(str(tc.get("Title", "")).split()).casefold()
+
+        if case_id and case_id in existing_ids:
+            raise ValueError(
+                f"Recuperación rechazada: ID de CP duplicado ({tc.get('ID')})."
+            )
+        if title and title in existing_titles:
+            raise ValueError(
+                f"Recuperación rechazada: título de CP duplicado ({tc.get('Title')})."
+            )
+
+        if case_id:
+            existing_ids.add(case_id)
+        if title:
+            existing_titles.add(title)
+        additions.append(dict(tc))
+
+    if not additions:
+        raise ValueError(
+            "Recuperación incompleta: Gemini no devolvió CP nuevos."
+        )
+
+    merged = dict(original)
+    merged["TEST_CASES"] = existing_cases + additions
+    return merged
+
+
+
 def generate_qa_data(prompt_text, source_content, api_key, model_name, temperature=0.1, max_retries=2, initial_wait=10):
     if genai is None:
         raise RuntimeError("No está instalada la librería google-genai.")
@@ -186,22 +328,64 @@ def generate_qa_data(prompt_text, source_content, api_key, model_name, temperatu
     for candidate in candidates:
         for attempt in range(max_retries + 1):
             try:
+
+
                 response = _generate_once(client, candidate, full_prompt, temperature)
-                response_text = (response.text or "").strip()
-                if not response_text:
-                    raise RuntimeError(f"{candidate}: Gemini devolvió una respuesta vacía.")
-                try:
-                    data = json.loads(response_text)
-                except json.JSONDecodeError:
-                    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", response_text)
-                    if not match:
-                        raise RuntimeError(f"{candidate}: la respuesta no es JSON válido. Respuesta: {response_text[:1200]}")
-                    data = json.loads(match.group(1))
+                data = _parse_gemini_json(response.text, candidate)
                 validated = validate_qa_structure(data)
-                validate_minimum_cu_coverage(validated)
+
+                try:
+                    validate_minimum_cu_coverage(validated)
+                except ValueError:
+                    metrics = calculate_cu_coverage(
+                        validated.get("TEST_CASES", []),
+                        validated.get("USE_CASES", []),
+                    )
+
+                    # Solo intentar reparar cuando el único problema sea la falta de CP.
+                    has_other_coverage_errors = any(
+                        metrics.get(key)
+                        for key in (
+                            "cp_without_cu",
+                            "cp_multiple_cu",
+                            "cp_non_eligible_cu",
+                        )
+                    )
+
+                    if not metrics["missing_cu"] or has_other_coverage_errors:
+                        raise
+
+                    repair_prompt = _build_missing_cu_repair_prompt(
+                        full_prompt,
+                        validated,
+                        metrics["missing_cu"],
+                    )
+
+                    repair_response = _generate_once(
+                        client,
+                        candidate,
+                        repair_prompt,
+                        temperature,
+                    )
+                    repair_data = validate_qa_structure(
+                        _parse_gemini_json(repair_response.text, candidate)
+                    )
+
+                    validated = _merge_repaired_cases(
+                        validated,
+                        repair_data,
+                        metrics["missing_cu"],
+                    )
+
+                    # La recuperación solo se acepta si la cobertura queda completa.
+                    validate_minimum_cu_coverage(validated)
+
                 _set_session_state("quota_exceeded", False)
                 _set_session_state("retry_count", 0)
                 return validated
+
+
+
             except Exception as exc:
                 detail = _extract_error_detail(exc)
                 errors.append(f"{candidate} / intento {attempt + 1}: {detail}")

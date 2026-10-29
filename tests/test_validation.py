@@ -8,8 +8,8 @@ def test_calculate_cu_coverage_requires_at_least_one_cp_per_cu():
         {"ID": "CP-AC-CAC-00001", "Related Use Case": "CU-325"},
     ]
     use_cases = [
-        {"ID": "CU-325", "Name": "Generar liquidación"},
-        {"ID": "CU-363", "Name": "Recotizar"},
+        {"ID": "CU-325", "Name": "Generar liquidación", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True},
+        {"ID": "CU-363", "Name": "Recotizar", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True},
     ]
 
     metrics = calculate_cu_coverage(cases, use_cases)
@@ -24,7 +24,7 @@ def test_calculate_cu_coverage_rejects_cp_related_to_more_than_one_cu():
     cases = [
         {"ID": "CP-AC-CAC-00001", "Related Use Case": "CU-325; CU-363"},
     ]
-    use_cases = ["CU-325", "CU-363"]
+    use_cases = [{"ID": "CU-325", "Name": "Generar liquidaci?n", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True}, {"ID": "CU-363", "Name": "Recotizar", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True}]
 
     metrics = calculate_cu_coverage(cases, use_cases)
 
@@ -39,8 +39,8 @@ def test_validate_minimum_cu_coverage_accepts_complete_coverage():
             {"ID": "CP-AC-CAC-00002", "Related Use Case": "CU-363"},
         ],
         "USE_CASES": [
-            {"ID": "CU-325", "Name": "Generar liquidación"},
-            {"ID": "CU-363", "Name": "Recotizar"},
+            {"ID": "CU-325", "Name": "Generar liquidación", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True},
+            {"ID": "CU-363", "Name": "Recotizar", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True},
         ],
     }
 
@@ -56,8 +56,8 @@ def test_validate_minimum_cu_coverage_blocks_missing_cu():
             {"ID": "CP-AC-CAC-00001", "Related Use Case": "CU-325"},
         ],
         "USE_CASES": [
-            {"ID": "CU-325", "Name": "Generar liquidación"},
-            {"ID": "CU-363", "Name": "Recotizar"},
+            {"ID": "CU-325", "Name": "Generar liquidación", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True},
+            {"ID": "CU-363", "Name": "Recotizar", "INTERFACE_STATUS": "UI_VERIFICABLE", "INTERFACE_EVIDENCE": "La fuente describe una interfaz.", "CP_ELIGIBLE": True},
         ],
     }
 

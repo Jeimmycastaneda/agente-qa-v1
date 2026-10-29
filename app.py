@@ -92,6 +92,9 @@ with st.sidebar:
         for page_url in st.session_state.cotizador_pages:
             st.code(page_url)
 
+with st.expander("Ver evidencia de navegación del cotizador"):
+ st.text(st.session_state.get("cotizador_source_text", "Sin evidencia disponible."))
+
 source_text = render_document_section(extract_source)
 
 # La evidencia del cotizador se agrega como contexto técnico de navegación.

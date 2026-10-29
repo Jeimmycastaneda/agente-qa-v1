@@ -7,8 +7,7 @@ información de otros módulos al agente.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import urljoin
-
+from urllib.parse import urljoin, urlsplit
 
 class CotizadorColectivosError(RuntimeError):
     pass
@@ -27,6 +26,9 @@ def _in_scope(value: str) -> bool:
     normalized = (value or "").casefold()
     return any(term in normalized for term in _SCOPE)
 
+def _origin(value: str) -> tuple[str, str]:
+    parsed = urlsplit(value)
+    return parsed.scheme.casefold(), parsed.netloc.casefold()
 
 def inspect_cotizador_colectivos(
     url: str,
@@ -69,6 +71,55 @@ def inspect_cotizador_colectivos(
 
             for _ in range(8):
                 current = page.url
+
+                page_title = page.title()
+
+                frame_info = []
+                for frame in page.frames:
+                    frame_info.append(
+                        f"Nombre: {frame.name or '(sin nombre)'}; "
+                        f"URL: {frame.url}"
+                    )
+
+                body_text = page.locator("body").inner_text(timeout=10000)
+
+                page_info = page.evaluate("""() => ({
+                    htmlLength: document.documentElement.outerHTML.length,
+                    forms: Array.from(document.forms).map(f => ({
+                        action: f.action,
+                        method: f.method
+                    })),
+                    controls: Array.from(
+                        document.querySelectorAll(
+                            'input, button, select, a, iframe'
+                        )
+                    ).map(e => ({
+                        tag: e.tagName,
+                        type: e.type || '',
+                        text: (e.innerText || e.value || '').trim(),
+                        id: e.id || '',
+                        name: e.name || '',
+                        href: e.href || '',
+                        visible: !!(e.offsetWidth || e.offsetHeight)
+                    })).slice(0, 40)
+                })""")
+
+
+                diagnostic = (
+                    f"TITULO DE LA PAGINA: {page_title}\n"
+                    f"LONGITUD DEL TEXTO VISIBLE: {len(body_text)} caracteres\n"
+                    f"TEXTO VISIBLE: {body_text[:500]!r}\n"
+                    f"ESTADO DOCUMENTO: "
+                    f"{page.evaluate('document.readyState')}\n"
+                    f"URL FINAL: {page.url}\n"
+                    "FRAMES DETECTADOS:\n"
+                    + "\n".join(frame_info[:20])
+                    + f"\nDIAGNOSTICO HTML Y CONTROLES:\n{page_info}\n"
+                )
+
+
+
+
                 if current not in pages:
                     pages.append(current)
 
@@ -89,7 +140,7 @@ def inspect_cotizador_colectivos(
                         if visible_name not in scoped_labels:
                             scoped_labels.append(visible_name)
                         navigation_items.append(
-                            f"Nombre: {visible_name}; Tipo: {element.evaluate(\"el => el.tagName\")}; "
+                            f"Nombre: {visible_name}; Tipo: {element.evaluate('el => el.tagName')}; "
                             f"Destino: {href or 'acción visible sin enlace'}"
                         )
 
@@ -112,7 +163,7 @@ def inspect_cotizador_colectivos(
                         value = name or aria or placeholder
                         if value and (_in_scope(value) or _in_scope(element.get_attribute("id") or "")):
                             controls.append(
-                                f"Control: {value}; Tipo: {element.get_attribute('type') or element.evaluate(\"el => el.tagName\")}"
+                                f"Control: {value}; Tipo: {element.get_attribute('type') or element.evaluate('el => el.tagName')}"
                             )
 
                 body = page.locator("body").inner_text(timeout=10000)
@@ -124,6 +175,7 @@ def inspect_cotizador_colectivos(
 
                 chunks.append(
                     f"URL: {current}\n"
+                    + diagnostic + "\n"
                     "ELEMENTOS DE NAVEGACION VISIBLES:\n"
                     + "\n".join(navigation_items[:120])
                     + "\nENCABEZADOS/PANTALLAS VISIBLES:\n"
@@ -134,23 +186,169 @@ def inspect_cotizador_colectivos(
                     + "\n".join(scoped_body[:250])
                 )
 
-                navigable = page.locator("a:visible[href]")
+
+
+
+
+                navigable = page.locator("a[href]")
+
+                print("[QA DEBUG] URL:", page.url)
+                print(
+                    "[QA DEBUG] Enlaces del menú:",
+                    page.locator("a[href]").evaluate_all(
+                        """els => els.map(a => ({
+                            texto: (a.innerText || '').trim(),
+                            href: a.getAttribute('href'),
+                            visible: !!(a.offsetWidth || a.offsetHeight)
+                        }))"""
+                    ),
+                )
+
                 target = None
-                for index in range(min(navigable.count(), 60)):
-                    href = navigable.nth(index).get_attribute("href") or ""
-                    label = navigable.nth(index).inner_text().strip()
+
+                allowed_host = (
+                    "colectivoautos2.pruebasrentec.cotizadoresgenerales.com"
+                )
+                allowed_paths = {
+                    "/app/crearcotizacioncolectivo",
+                    "/app/consultarcotizacion",
+                    "/app/revisiondelegacion",
+                }
+
+
+
+                for index in range(navigable.count()):
+                    link = navigable.nth(index)
+
+                    href = link.get_attribute("href") or ""
+                    print(
+                        "[QA DEBUG] ENLACE:",
+                        index,
+                        "VISIBLE_PLAYWRIGHT:",
+                        link.is_visible(),
+                        "HREF:",
+                        href,
+                    )
+
+                    href = link.get_attribute("href") or ""
+                    label = link.inner_text().strip()
+                    element_id = link.get_attribute("id") or ""
+
                     if href.startswith(("#", "javascript:", "mailto:", "tel:")):
                         continue
-                    if not _in_scope(label) and not _in_scope(href):
-                        continue
+
                     absolute = urljoin(current, href)
-                    if absolute.startswith(url.split("/")[0] + "//") and absolute not in pages:
+                    parsed_target = urlsplit(absolute)
+                    host = (parsed_target.hostname or "").casefold()
+                    path = parsed_target.path.casefold().rstrip("/")
+                    is_https = parsed_target.scheme.casefold() == "https"
+
+                    is_colectivos_link = (
+                        host == allowed_host
+                        and is_https
+                        and parsed_target.path in ("", "/")
+                        and bool(parsed_target.query)
+                        and _origin(current) == _origin(url)
+                    )
+
+                    is_allowed_page = (
+                        host == allowed_host
+                        and is_https
+                        and path in {
+                            "/app/crearcotizacioncolectivo",
+                            "/app/consultarcotizacion",
+                            "/app/revisiondelegacion",
+                        }
+                    )
+
+                    is_same_origin_scoped = (
+                        _origin(absolute) == _origin(url)
+                        and (_in_scope(label) or _in_scope(href))
+                    )
+
+                    print(
+                        "[QA DEBUG] ENLACE VISIBLE:",
+                        repr(label),
+                        "RUTA:",
+                        path,
+                        "PERMITIDA:",
+                        is_allowed_page,
+                    )
+
+                    rutas_colectivos = {
+                        "/app/crearcotizacioncolectivo",
+                        "/app/consultarcotizacion",
+                        "/app/revisiondelegacion",
+                    }
+
+                    es_ruta_colectivos = (
+                        host == allowed_host
+                        and is_https
+                        and path in rutas_colectivos
+                    )
+
+                    if not (
+                        is_colectivos_link
+                        or is_allowed_page
+                        or is_same_origin_scoped
+                        or es_ruta_colectivos
+                    ):
+                        print(
+                            "[QA DEBUG] ENLACE DESCARTADO:",
+                            repr(label),
+                            "URL:",
+                            absolute.split("?")[0],
+                        )
+                        continue
+
+                    print(
+                        "[QA DEBUG] ENLACE ACEPTADO:",
+                        repr(label),
+                        "URL:",
+                        absolute.split("?")[0],
+                    )
+
+                    if absolute not in pages:
                         target = absolute
                         break
 
+                print(f"[QA DEBUG] URL actual: {current}")
+                print(f"[QA DEBUG] Enlace encontrado: {target is not None}")
+                print(f"[QA DEBUG] Enlace seleccionado: {target}")
+
                 if not target:
                     break
-                page.goto(target, wait_until="domcontentloaded", timeout=30000)
+
+
+
+
+                chunks.append(
+                    f"ENLACE SELECCIONADO PARA NAVEGAR: {target}\n"
+                )
+
+                print(f"[QA DEBUG] Enlace seleccionado: {target}")
+                page.goto(
+                    target,
+                    wait_until="domcontentloaded",
+                    timeout=30000,
+                )
+
+
+                print("[QA DEBUG] URL después de goto:", page.url)
+                print("[QA DEBUG] Título:", page.title())
+                print("[QA DEBUG] Estado HTTP: pendiente de validar")
+                print("[QA DEBUG] HTML:", page.locator("body").inner_text()[:1500])
+                print("[QA DEBUG] Enlaces encontrados:", page.locator("a").count())
+
+                chunks.append(
+                    f"URL DESPUES DE NAVEGAR: {page.url}\n"
+                    f"TITULO DESPUES DE NAVEGAR: {page.title()}\n"
+                    f"TEXTO DESPUES DE NAVEGAR: "
+                    f"{page.locator('body').inner_text(timeout=10000)[:500]!r}\n"
+                )
+
+
+
 
         except Exception as exc:
             raise CotizadorColectivosError(
