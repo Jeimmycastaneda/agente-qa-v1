@@ -434,13 +434,13 @@ def list_test_suites(plan_id):
 
 
 def list_reference_suites_current_year(year: int):
-    """Lista Suites de referencia de Colectivos Autos y Miniflotas actualizadas en los últimos seis meses."""
+    """Lista Suites de referencia de Colectivos Autos y Miniflotas de los últimos 30 días."""
     from datetime import datetime, timedelta, timezone
 
     cfg = _az_config()
     _az_validate(cfg)
     now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=183)
+    cutoff = now - timedelta(days=30)
 
     def parse_date(value):
         raw = safe_text(value).strip()
@@ -563,7 +563,7 @@ def list_reference_suites_current_year(year: int):
         "suites": unique,
         "message": (
             f"Consulta de solo lectura: {len(unique)} Suite(s) de Colectivos Autos/Miniflotas "
-            "con fecha dentro de los últimos seis meses. "
+            "con fecha dentro de los últimos 30 días. "
             f"Se revisaron {len(plans)} Test Plan(s) en todas las páginas de Azure."
         ),
     }
