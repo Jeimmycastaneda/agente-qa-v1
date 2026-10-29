@@ -162,16 +162,19 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
         try:
             from datetime import datetime
             owner_for_reference = st.session_state.get("azure_publish_owner")
-            with st.spinner("Consultando las últimas 10 Suites del propietario seleccionado..."):
-                catalog_result = list_reference_suites_current_year(datetime.now().year, owner_unique_name=owner_for_reference, limit=10)
-            st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
-            st.session_state.azure_reference_selected_suites = []
-            st.session_state.azure_reference_details = []
-            st.session_state.azure_reference_source_text = ""
-            if catalog_result.get("suites"):
-                st.success(catalog_result.get("message", "Suites encontradas."))
+            if not owner_for_reference:
+                st.warning("⚠️ Selecciona primero el valor de “Propietario al que se asignarán los CP” en la sección de publicación y luego vuelve a consultar las Suites.")
             else:
-                st.warning("⚠️ No se encontraron Suites elegibles en Test Plans del propietario seleccionado. Verifica que hayas elegido el propietario y actualizado los Test Plans destino.")
+                with st.spinner("Consultando las últimas 10 Suites del propietario seleccionado..."):
+                    catalog_result = list_reference_suites_current_year(datetime.now().year, owner_unique_name=owner_for_reference, limit=10)
+                st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
+                st.session_state.azure_reference_selected_suites = []
+                st.session_state.azure_reference_details = []
+                st.session_state.azure_reference_source_text = ""
+                if catalog_result.get("suites"):
+                    st.success(catalog_result.get("message", "Suites encontradas."))
+                else:
+                    st.warning("⚠️ No se encontraron Suites elegibles en Test Plans del propietario seleccionado. Verifica que hayas actualizado los Test Plans destino.")
         except Exception as exc:
             st.error(f"❌ No se pudieron consultar las Suites de referencia: {exc}")
 
