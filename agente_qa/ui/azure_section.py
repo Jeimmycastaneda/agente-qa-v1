@@ -132,7 +132,7 @@ def _init_state():
         "azure_reference_plans": [], "azure_reference_plan_id": None, "azure_reference_suites": [], "azure_reference_suite_id": None,
         "azure_reference_cases": [], "azure_reference_case_id": None, "azure_reference_case_ids": [], "azure_reference_detail": None,
         "azure_reference_details": [], "azure_reference_analysis": None, "azure_reference_preview": None, "azure_reference_source_text": "", "azure_reference_suites_catalog": [], "azure_reference_selected_suites": [], "azure_preview_edit_mode": False,
-        "azure_target_plan_id": None, "azure_target_suite_id": None, "azure_target_suites": [], "azure_publish_selection": "Un solo CP", "azure_publish_results": None,
+        "azure_target_plan_id": None, "azure_target_suite_id": None, "azure_target_suites": [], "azure_publish_selection": "Un solo CP", "azure_publish_results": None, "azure_publish_target_plans": [], "azure_publish_plans_loaded": False,
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -339,7 +339,7 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
     return {"api_key": api_key, "selected_model": selected_model, "selected_config": selected_config, "max_retries": max_retries, "wait_time": wait_time}
 
 
-def render_azure_publish(*, result, selected_config, list_test_suites, list_test_cases, create_selected_cases_in_azure):
+def render_azure_publish(*, result, selected_config, list_test_plans, list_test_suites, list_test_cases, create_selected_cases_in_azure):
     if not result: return
     st.divider(); st.subheader("🚀 Cargar CP en Azure DevOps")
     st.caption("La creación real ocurre únicamente después de seleccionar CP, Test Plan y Suite y confirmar explícitamente el resumen.")
@@ -350,7 +350,20 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     if selection_mode == "Un solo CP": selected_publish_ids = [st.selectbox("CP a cargar", labels, format_func=lambda x: f"{x} — {build_case_title(publish_case_map[x], x, suite_name=safe_text(publish_case_map[x].get('SUITE_NAME'), st.session_state.get('qa_generation_suite_name', '')))[:100]}", key="azure_publish_single_case")] if labels else []
     elif selection_mode == "Seleccionar varios CP": selected_publish_ids = st.multiselect("Selecciona los CP que deseas cargar", labels, format_func=lambda x: f"{x} — {build_case_title(publish_case_map[x], x, suite_name=safe_text(publish_case_map[x].get('SUITE_NAME'), st.session_state.get('qa_generation_suite_name', '')))[:100]}", key="azure_publish_multi_cases")
     else: selected_publish_ids = labels; st.info(f"Se cargarán los {len(selected_publish_ids)} CP generados actualmente.")
-    all_target_plans = st.session_state.get("azure_reference_plans", []) or []
+    refresh_plans = st.button("🔄 Actualizar Test Plans y Suites disponibles", key="azure_publish_refresh_plans")
+    if refresh_plans or not st.session_state.get("azure_publish_plans_loaded", False):
+        try:
+            with st.spinner("Consultando los Test Plans más recientes de Azure DevOps..."):
+                plans_result = list_test_plans(limit=None)
+            st.session_state.azure_publish_target_plans = plans_result.get("plans", []) or []
+            st.session_state.azure_publish_plans_loaded = True
+            st.session_state.azure_target_plan_id = None
+            st.session_state.azure_target_suite_id = None
+            st.session_state.azure_target_suites = []
+            st.success(f"Se actualizaron {len(st.session_state.azure_publish_target_plans)} Test Plan(s) desde Azure.")
+        except Exception as exc:
+            st.error(f"❌ No se pudieron actualizar los Test Plans destino: {exc}")
+    all_target_plans = st.session_state.get("azure_publish_target_plans", []) or []
     target_plans = [
         plan for plan in all_target_plans
         if any(
@@ -361,6 +374,7 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
             for term in ("colectiv", "autos")
         )
     ]
+    target_plans.sort(key=lambda plan: int(plan.get("id") or 0), reverse=True)
     if not target_plans:
         st.warning("⚠️ No hay un Test Plan destino identificado dentro del alcance Colectivos Autos. La creación queda bloqueada para evitar operar sobre otro módulo.")
         return
@@ -375,11 +389,16 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
         or "No identificado"
     )
     st.info(f"👤 Los nuevos CP se asignarán al usuario propietario del Test Plan: **{plan_owner_name}**")
-    if st.session_state.get("azure_target_plan_id") != target_plan_id:
-        st.session_state.azure_target_plan_id = target_plan_id; st.session_state.azure_target_suite_id = None
+    refresh_suites = st.button("🔄 Actualizar Suites del Test Plan seleccionado", key="azure_publish_refresh_suites")
+    if st.session_state.get("azure_target_plan_id") != target_plan_id or refresh_suites:
+        st.session_state.azure_target_plan_id = target_plan_id
+        st.session_state.azure_target_suite_id = None
         try:
-            with st.spinner("Consultando Suites del Test Plan destino..."): st.session_state.azure_target_suites = list_test_suites(target_plan_id)
-        except Exception as exc: st.session_state.azure_target_suites = []; st.error(f"❌ No se pudieron consultar las Suites del destino: {exc}")
+            with st.spinner("Consultando las Suites más recientes del Test Plan destino..."):
+                st.session_state.azure_target_suites = list_test_suites(target_plan_id)
+        except Exception as exc:
+            st.session_state.azure_target_suites = []
+            st.error(f"❌ No se pudieron consultar las Suites del destino: {exc}")
     target_suites = st.session_state.get("azure_target_suites", []) or []
     if not target_suites: st.warning("⚠️ El Test Plan seleccionado no tiene Suites consultables."); return
     suite_labels = [f"{s.get('id')} — {_ui(s.get('name'), 'Suite sin nombre')}" for s in target_suites]; target_suite = target_suites[suite_labels.index(st.selectbox("Suite destino", suite_labels, key="azure_publish_target_suite"))]; st.session_state.azure_target_suite_id = str(target_suite.get("id"))
