@@ -156,12 +156,12 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
     max_retries = st.number_input("Máximo de reintentos", min_value=0, max_value=5, value=2)
     wait_time = st.number_input("Espera inicial (segundos)", min_value=1, max_value=60, value=10)
     st.divider(); st.subheader("📚 Referencias de navegación para generar Steps")
-    st.caption("Solo lectura. Se consultan Suites de referencia de Colectivos Autos y Miniflotas con fecha dentro de los últimos 6 meses, sin importar quién las creó. Si el ambiente no está disponible, sirven como referencia de navegación y estructura.")
+    st.caption("Solo lectura. Se consultan Suites de referencia de Colectivos Autos y Miniflotas con fecha dentro de los últimos 30 días, sin importar quién las creó. Si el ambiente no está disponible, sirven como referencia de navegación y estructura.")
 
-    if st.button("📚 Buscar Suites de referencia de los últimos 6 meses", key="azure_reference_current_year"):
+    if st.button("📚 Buscar Suites de referencia de los últimos 30 días", key="azure_reference_current_year"):
         try:
             from datetime import datetime
-            with st.spinner("Consultando Suites de referencia de los últimos 6 meses..."):
+            with st.spinner("Consultando Suites de referencia de los últimos 30 días..."):
                 catalog_result = list_reference_suites_current_year(datetime.now().year)
             st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
             st.session_state.azure_reference_selected_suites = []
@@ -170,7 +170,7 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             if catalog_result.get("suites"):
                 st.success(catalog_result.get("message", "Suites encontradas."))
             else:
-                st.warning("⚠️ No se encontraron Suites de Colectivos Autos o Miniflotas con fecha dentro de los últimos 6 meses.")
+                st.warning("⚠️ No se encontraron Suites de Colectivos Autos o Miniflotas con fecha dentro de los últimos 30 días.")
         except Exception as exc:
             st.error(f"❌ No se pudieron consultar las Suites de referencia: {exc}")
 
@@ -182,7 +182,7 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             for s in reference_catalog
         ]
         # Se incluyen las Suites elegibles del catálogo sin filtrar por creador.
-        # El catálogo admite Colectivos Autos y Miniflotas con fecha dentro de los últimos 6 meses.
+        # El catálogo admite Colectivos Autos y Miniflotas con fecha dentro de los últimos 30 días.
         selected_suites = reference_catalog
         st.session_state.azure_reference_selected_suites = selected_suites
         st.info(
