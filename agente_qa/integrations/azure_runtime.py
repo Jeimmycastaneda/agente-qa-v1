@@ -360,11 +360,38 @@ def test_connection():
 
 
 def list_test_plans(limit=10):
+    """Consulta Test Plans recientes; con limit=None recorre todas las páginas disponibles."""
     cfg = _az_config()
     _az_validate(cfg)
-    params = urlencode({"api-version": "7.1", "includePlanDetails": "true", "$top": int(limit)})
-    payload, _ = _az_get_json(_az_testplan_url(cfg, "plans") + "?" + params, cfg["pat"])
-    plans = sorted(payload.get("value") or [], key=lambda x: int(x.get("id") or 0), reverse=True)[:int(limit)]
+    plans = []
+    continuation_token = None
+    seen_tokens = set()
+    page_size = 100
+    while True:
+        params = {
+            "api-version": "7.1",
+            "includePlanDetails": "true",
+            "$top": page_size if limit is None else min(page_size, max(1, int(limit) - len(plans))),
+        }
+        if continuation_token:
+            params["continuationToken"] = continuation_token
+        payload, headers = _az_get_json(
+            _az_testplan_url(cfg, "plans") + "?" + urlencode(params), cfg["pat"]
+        )
+        plans.extend(payload.get("value") or [])
+        if limit is not None and len(plans) >= int(limit):
+            plans = plans[:int(limit)]
+            break
+        next_token = (
+            payload.get("continuationToken")
+            or (headers.get("x-ms-continuationtoken") if headers else None)
+        )
+        if not next_token or str(next_token) in seen_tokens:
+            break
+        seen_tokens.add(str(next_token))
+        continuation_token = str(next_token)
+
+    plans = sorted(plans, key=lambda x: int(x.get("id") or 0), reverse=True)
     rows = []
     for p in plans:
         owner = p.get("owner") if isinstance(p.get("owner"), dict) else {}
@@ -382,7 +409,15 @@ def list_test_plans(limit=10):
                 "unique_name": _ui_text(owner.get("uniqueName")),
             },
         })
-    return {"ok": True, "organization": cfg["org"], "project": cfg["project"], "count": len(rows), "plans": rows, "message": "Consulta correcta. Solo se consultaron los 10 Test Plans más recientes por ID; no se creó, modificó ni eliminó ningún recurso."}
+    count_label = "todos los Test Plans disponibles" if limit is None else f"los {len(rows)} Test Plans más recientes"
+    return {
+        "ok": True,
+        "organization": cfg["org"],
+        "project": cfg["project"],
+        "count": len(rows),
+        "plans": rows,
+        "message": f"Consulta correcta: {len(rows)} de {count_label}, ordenados por ID descendente. Solo lectura; no se creó, modificó ni eliminó ningún recurso.",
+    }
 
 
 def list_test_suites(plan_id):
