@@ -156,25 +156,21 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
     max_retries = st.number_input("Máximo de reintentos", min_value=0, max_value=5, value=2)
     wait_time = st.number_input("Espera inicial (segundos)", min_value=1, max_value=60, value=10)
     st.divider(); st.subheader("📚 Referencias de navegación para generar Steps")
-    st.caption("Solo lectura. Muestra hasta las últimas 10 Suites de Colectivos Autos/Miniflotas de Test Plans cuyo propietario coincide con el seleccionado en “Propietario al que se asignarán los CP”. Selecciona primero el propietario en la sección de publicación y luego vuelve a consultar aquí.")
+    st.caption("Solo lectura. Busca las Suites de Colectivos Autos/Miniflotas creadas o actualizadas en los últimos 30 días. Las 10 más recientes se cargan como referencia para el estilo, diseño, estructura y nivel de detalle de los CP; la HU sigue siendo la única fuente de reglas funcionales.")
 
-    if st.button("📚 Buscar las últimas 10 Suites del propietario", key="azure_reference_current_year"):
+    if st.button("📚 Buscar Suites de los últimos 30 días", key="azure_reference_current_year"):
         try:
             from datetime import datetime
-            owner_for_reference = st.session_state.get("azure_publish_owner")
-            if not owner_for_reference:
-                st.warning("⚠️ Selecciona primero el valor de “Propietario al que se asignarán los CP” en la sección de publicación y luego vuelve a consultar las Suites.")
+            with st.spinner("Consultando Suites creadas o actualizadas en los últimos 30 días..."):
+                catalog_result = list_reference_suites_current_year(datetime.now().year, limit=10)
+            st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
+            st.session_state.azure_reference_selected_suites = []
+            st.session_state.azure_reference_details = []
+            st.session_state.azure_reference_source_text = ""
+            if catalog_result.get("suites"):
+                st.success(catalog_result.get("message", "Suites encontradas."))
             else:
-                with st.spinner("Consultando las últimas 10 Suites del propietario seleccionado..."):
-                    catalog_result = list_reference_suites_current_year(datetime.now().year, owner_unique_name=owner_for_reference, limit=10)
-                st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
-                st.session_state.azure_reference_selected_suites = []
-                st.session_state.azure_reference_details = []
-                st.session_state.azure_reference_source_text = ""
-                if catalog_result.get("suites"):
-                    st.success(catalog_result.get("message", "Suites encontradas."))
-                else:
-                    st.warning("⚠️ No se encontraron Suites elegibles en Test Plans del propietario seleccionado. Verifica que hayas actualizado los Test Plans destino.")
+                st.warning("⚠️ No se encontraron Suites de Colectivos Autos o Miniflotas creadas o actualizadas en los últimos 30 días. Azure debe devolver una fecha propia de la Suite para verificar su antigüedad.")
         except Exception as exc:
             st.error(f"❌ No se pudieron consultar las Suites de referencia: {exc}")
 
@@ -186,12 +182,12 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             for s in reference_catalog
         ]
         # Se incluyen las Suites elegibles del catálogo sin filtrar por creador.
-        # El catálogo se limita a las últimas 10 Suites elegibles del propietario seleccionado.
+        # El catálogo se limita a las 10 Suites elegibles más recientes de los últimos 30 días.
         selected_suites = reference_catalog
         st.session_state.azure_reference_selected_suites = selected_suites
         st.info(
             f"Se utilizarán todas las {len(selected_suites)} Suite(s) elegibles del catálogo, "
-            "del propietario seleccionado. Se usan únicamente como referencia de navegación, "
+            "de los últimos 30 días. Se usan únicamente como referencia de estilo, diseño, navegación, "
             "terminología y nivel de detalle; no para inferir reglas funcionales."
         )
         if st.button("🔎 Cargar Test Cases de todas las Suites elegibles", key="azure_reference_load_three"):
