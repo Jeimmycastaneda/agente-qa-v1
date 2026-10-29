@@ -33,7 +33,7 @@ SCHEMA = {
             "type": "array",
             "items": {"type": "object", "properties": {
                 "ID": {"type": "string"}, "Name": {"type": "string"},
-                "INTERFACE_STATUS": {"type": "string", "enum": ["UI_VERIFICABLE", "NO_UI", "AMBIGUA"]},
+                "INTERFACE_STATUS": {"type": "string", "enum": ["UI_VERIFICABLE", "TECNICO_VERIFICABLE", "NO_UI", "AMBIGUA"]},
                 "INTERFACE_EVIDENCE": {"type": "string"},
                 "CP_ELIGIBLE": {"type": "boolean"}
             }, "required": ["ID", "Name", "INTERFACE_STATUS", "INTERFACE_EVIDENCE", "CP_ELIGIBLE"]}
@@ -117,13 +117,13 @@ def validate_qa_structure(data):
     if not isinstance(data["COVERAGE"], list):
         data["COVERAGE"] = []
 
-    allowed_status = {"UI_VERIFICABLE", "NO_UI", "AMBIGUA"}
+    allowed_status = {"UI_VERIFICABLE", "TECNICO_VERIFICABLE", "NO_UI", "AMBIGUA"}
     for cu in data["USE_CASES"]:
         status = cu.get("INTERFACE_STATUS")
         if status not in allowed_status:
             raise ValueError(f"CU {cu.get('ID', '')}: INTERFACE_STATUS inválido: {status}")
         eligible = cu.get("CP_ELIGIBLE")
-        expected = status == "UI_VERIFICABLE"
+        expected = status in {"UI_VERIFICABLE", "TECNICO_VERIFICABLE"}
         if eligible is not expected:
             raise ValueError(
                 f"CU {cu.get('ID', '')}: CP_ELIGIBLE no coincide con INTERFACE_STATUS."
