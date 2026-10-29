@@ -142,6 +142,7 @@ if result:
     render_azure_publish(
         result=result,
         selected_config=sidebar_config["selected_config"],
+        list_test_plans=list_test_plans,
         list_test_suites=list_test_suites,
         list_test_cases=list_test_cases,
         create_selected_cases_in_azure=create_selected_cases_in_azure,
