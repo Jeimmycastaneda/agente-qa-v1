@@ -3,7 +3,8 @@
 import re
 import streamlit as st
 
-ALLOWED_INTERFACE_STATUS = {"UI_VERIFICABLE", "NO_UI", "AMBIGUA"}
+ALLOWED_INTERFACE_STATUS = {"UI_VERIFICABLE", "TECNICO_VERIFICABLE", "NO_UI", "AMBIGUA"}
+ELIGIBLE_CP_STATUSES = {"UI_VERIFICABLE", "TECNICO_VERIFICABLE"}
 
 
 def _normalize_cu(value):
@@ -70,7 +71,7 @@ def calculate_cu_coverage(cases, identified_use_cases):
             continue
         if status not in ALLOWED_INTERFACE_STATUS:
             raise ValueError(f"CU {cid}: INTERFACE_STATUS inválido o ausente.")
-        expected_eligible = status == "UI_VERIFICABLE"
+        expected_eligible = status in ELIGIBLE_CP_STATUSES
         if eligible is not expected_eligible:
             raise ValueError(f"CU {cid}: CP_ELIGIBLE no coincide con INTERFACE_STATUS.")
 
@@ -121,7 +122,7 @@ def calculate_cu_coverage(cases, identified_use_cases):
     total_eligible_cu = len(eligible_keys)
     total_cp = len(cases or [])
     covered_count = len(covered)
-    percentage = round((covered_count / total_eligible_cu) * 100, 1) if total_eligible_cu else 100.0
+    percentage = round((covered_count / total_eligible_cu) * 100, 1) if total_eligible_cu else None
 
     return {
         "total_cu": total_cu,
@@ -203,22 +204,28 @@ def validate_minimum_cu_coverage(data):
             details.append("CP asociado a CU no elegible: " + ", ".join(metrics["cp_non_eligible_cu"]))
         raise ValueError(
             f'COBERTURA INCOMPLETA: {metrics["covered_cu"]}/{metrics["total_eligible_cu"]} CU elegibles cubiertos '
-            f'({metrics["percentage"]}%). ' + " | ".join(details)
+            f'({str(metrics["percentage"]) + "%" if metrics["percentage"] is not None else "no aplica: no se identificaron CU elegibles"}). '
+            + " | ".join(details)
         )
     return metrics
 
 
 def render_cu_coverage(metrics):
-    st.markdown("### 📊 Cobertura de CU con interfaz verificable")
+    st.markdown("### 📊 Cobertura de CU elegibles para generación de CP")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("CU identificados", metrics["total_cu"])
     c2.metric("CU elegibles", metrics["total_eligible_cu"])
     c3.metric("CP generados", metrics["total_cp"])
-    c4.metric("Cobertura", f'{metrics["percentage"]}%')
-    if metrics["valid"]:
+    c4.metric("Cobertura", f'{metrics["percentage"]}%' if metrics["percentage"] is not None else "No aplica")
+    if metrics["valid"] and metrics["total_eligible_cu"] == 0:
+        st.info(
+            "No se identificaron CU elegibles para generar CP. La cobertura no se puede calcular; "
+            "revise la clasificación si la fuente describe comportamientos técnicos verificables."
+        )
+    elif metrics["valid"]:
         st.success(
-            "✅ Cobertura completa: cada CU con interfaz verificable tiene mínimo un CP. "
-            f'Quedan fuera de generación {metrics["total_non_eligible_cu"]} CU sin interfaz y '
+            "✅ Cobertura completa: cada CU elegible para generación tiene mínimo un CP. "
+            f'Quedan fuera de generación {metrics["total_non_eligible_cu"]} CU NO_UI y '
             f'{metrics["total_ambiguous_cu"]} CU ambiguos.'
         )
     else:
