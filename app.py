@@ -16,7 +16,6 @@ from agente_qa.ui.document import render_document_section
 from agente_qa.ui.generation_section import render_generation_section
 from agente_qa.ui.results import render_results_section
 from agente_qa.ui.azure_section import render_azure_publish, render_azure_sidebar
-from agente_qa.ui.azure_plan_suite_admin import render_azure_plan_suite_admin
 from agente_qa.ui.state import init_session_state
 from agente_qa.ui.coverage import coverage_gate_or_stop
 from agente_qa.ui.editor import render_azure_style_editor
@@ -28,8 +27,6 @@ from agente_qa.validation import calculate_cu_coverage, render_cu_coverage
 from agente_qa.integrations.azure_runtime import (
     AzureDevOpsError,
     create_selected_cases_in_azure,
-    create_test_plan,
-    create_test_suite,
     get_test_case_detail,
     list_test_cases,
     list_test_plans,
@@ -139,13 +136,6 @@ render_results_section(
     coverage_gate_or_stop=lambda data: coverage_gate_or_stop(calculate_cu_coverage, render_cu_coverage, data),
 )
 
-
-render_azure_plan_suite_admin(
-    list_test_plans=list_test_plans,
-    list_test_suites=list_test_suites,
-    create_test_plan=create_test_plan,
-    create_test_suite=create_test_suite,
-)
 
 result = st.session_state.get("result_json")
 if result:
