@@ -156,7 +156,7 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
     max_retries = st.number_input("Máximo de reintentos", min_value=0, max_value=5, value=2)
     wait_time = st.number_input("Espera inicial (segundos)", min_value=1, max_value=60, value=10)
     st.divider(); st.subheader("📚 Referencias de navegación para generar Steps")
-    st.caption("Solo lectura. Selecciona hasta 3 Suites del año actual dentro del alcance Colectivos Autos. Si el ambiente no está disponible, estas Suites serán la base para reconstruir rutas y pasos descriptivos.")
+    st.caption("Solo lectura. Se consultan todas las Suites elegibles del año actual dentro del alcance Colectivos Autos, sin importar quién las creó. Si el ambiente no está disponible, estas Suites serán la base para reconstruir rutas y pasos descriptivos.")
 
     if st.button("📚 Buscar Suites de referencia del año actual", key="azure_reference_current_year"):
         try:
@@ -181,24 +181,22 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             f"(Plan {s.get('plan_id')} / Suite {s.get('id')})"
             for s in reference_catalog
         ]
-        selected_labels = st.multiselect(
-            "Selecciona hasta 3 Suites base",
-            suite_labels,
-            max_selections=3,
-            key="azure_reference_suite_multi_select",
-        )
-        selected_suites = [reference_catalog[suite_labels.index(label)] for label in selected_labels]
+        # Se incluyen todas las Suites elegibles del catálogo, sin filtrar por creador.
+        # El alcance sigue limitado a Colectivos Autos y al año seleccionado.
+        selected_suites = reference_catalog
         st.session_state.azure_reference_selected_suites = selected_suites
-
-        if selected_suites:
-            st.info(f"Suites seleccionadas: {len(selected_suites)}/3. Estas referencias aportarán navegación, terminología y nivel de detalle; no reglas funcionales.")
-        if st.button("🔎 Cargar Test Cases de las Suites seleccionadas", key="azure_reference_load_three"):
+        st.info(
+            f"Se utilizarán todas las {len(selected_suites)} Suite(s) elegibles del catálogo, "
+            "sin importar quién las creó. Se usan únicamente como referencia de navegación, "
+            "terminología y nivel de detalle; no para inferir reglas funcionales."
+        )
+        if st.button("🔎 Cargar Test Cases de todas las Suites elegibles", key="azure_reference_load_three"):
             if not selected_suites:
-                st.warning("⚠️ Selecciona al menos una Suite.")
+                st.warning("⚠️ No hay Suites elegibles para cargar.")
             else:
                 details = []
                 errors = []
-                with st.spinner("Leyendo Test Cases de las Suites seleccionadas..."):
+                with st.spinner(f"Leyendo Test Cases de {len(selected_suites)} Suites elegibles..."):
                     for suite in selected_suites:
                         try:
                             cases = list_test_cases(suite.get("plan_id"), suite.get("id"))
@@ -220,11 +218,9 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
                 st.session_state.azure_reference_case_ids = [safe_text(d.get("id")) for d in details if safe_text(d.get("id"))]
                 st.session_state.azure_reference_analysis = _analyze_reference_details(details)
                 if errors:
-                    st.warning(f"⚠️ Se cargaron {len(details)} Test Cases de referencia; hubo {len(errors)} lecturas no disponibles.")
+                    st.warning(f"⚠️ Se cargaron {len(details)} Test Cases de referencia; hubo {len(errors)} lecturas no disponibles en Azure.")
                 else:
-                    st.success(f"✅ Se cargaron {len(details)} Test Cases de las {len(selected_suites)} Suite(s) seleccionadas.")
-                if len(selected_suites) < 3:
-                    st.warning("⚠️ Hay menos de 3 Suites seleccionadas. La generación continuará con las disponibles y dejará ALERTA.")
+                    st.success(f"✅ Se cargaron {len(details)} Test Cases de las {len(selected_suites)} Suite(s) elegibles.")
         st.divider(); st.subheader("🔐 Azure DevOps")
     st.caption("Prueba de conexión y consultas de referencia en modo solo lectura. No crean ni modifican CP.")
     if st.button("🔌 Probar conexión con Azure DevOps", key="azure_test_connection"):
