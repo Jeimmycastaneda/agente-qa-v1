@@ -401,19 +401,39 @@ def list_test_suites(plan_id):
 def list_reference_suites_current_year(year: int):
     """Lista Suites de referencia del año indicado dentro del alcance Colectivos Autos.
 
-    Solo devuelve recursos de lectura. El año se determina por las fechas del
-    Test Plan y, como respaldo, por su nombre/iteración. Las Suites se filtran
-    por evidencia textual de Colectivos Autos para evitar consultar otros módulos.
+    Recorre todas las páginas de Test Plans de Azure DevOps para no omitir planes
+    recientes cuando el proyecto supera el límite inicial de 100. El año se
+    determina por las fechas del Test Plan y, como respaldo, por su nombre/iteración.
+    Las Suites se filtran por evidencia textual de Colectivos Autos.
     """
     cfg = _az_config()
     _az_validate(cfg)
-    params = urlencode({
-        "api-version": "7.1",
-        "includePlanDetails": "true",
-        "$top": 100,
-    })
-    payload, _ = _az_get_json(_az_testplan_url(cfg, "plans") + "?" + params, cfg["pat"])
-    plans = payload.get("value") or []
+
+    # Azure puede paginar el catálogo de Test Plans. Seguir el token de continuación
+    # evita dejar por fuera planes recientes que no estén en la primera página.
+    plans = []
+    continuation_token = None
+    seen_tokens = set()
+    while True:
+        params = {
+            "api-version": "7.1",
+            "includePlanDetails": "true",
+            "$top": 100,
+        }
+        if continuation_token:
+            params["continuationToken"] = continuation_token
+        payload, headers = _az_get_json(
+            _az_testplan_url(cfg, "plans") + "?" + urlencode(params), cfg["pat"]
+        )
+        plans.extend(payload.get("value") or [])
+        next_token = (
+            payload.get("continuationToken")
+            or (headers.get("x-ms-continuationtoken") if headers else None)
+        )
+        if not next_token or str(next_token) in seen_tokens:
+            break
+        seen_tokens.add(str(next_token))
+        continuation_token = str(next_token)
 
     def text_plan(plan):
         return " ".join(
@@ -476,9 +496,8 @@ def list_reference_suites_current_year(year: int):
             for p in current_plans
         ],
         "suites": unique,
-        "message": f"Consulta de solo lectura: {len(unique)} Suite(s) elegibles del año {year} dentro del alcance Colectivos Autos."
+        "message": f"Consulta de solo lectura: {len(unique)} Suite(s) elegibles del año {year} dentro del alcance Colectivos Autos. Se revisaron {len(plans)} Test Plan(s) en todas las páginas de Azure."
     }
-
 
 def _normalize_case_rows(payload):
     rows = []
