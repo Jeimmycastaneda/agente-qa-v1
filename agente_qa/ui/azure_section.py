@@ -365,24 +365,25 @@ def render_azure_publish(*, result, selected_config, list_test_plans, list_test_
         except Exception as exc:
             st.error(f"❌ No se pudieron actualizar los Test Plans destino: {exc}")
     all_target_plans = st.session_state.get("azure_publish_target_plans", []) or []
-    target_plans = [
-        plan for plan in all_target_plans
-        if any(
-            term in " ".join(
-                safe_text(plan.get(key))
-                for key in ("name", "area_path", "iteration")
-            ).casefold()
-            for term in ("colectiv", "autos")
-        )
-    ]
+    # Mostrar todos los Test Plans recuperados de Azure en este selector.
+    # La publicación sigue protegida: solo se permite crear CP dentro del alcance autorizado.
+    target_plans = list(all_target_plans)
     target_plans.sort(key=lambda plan: int(plan.get("id") or 0), reverse=True)
     if not target_plans:
-        st.warning("⚠️ No hay un Test Plan destino identificado dentro del alcance Colectivos Autos. La creación queda bloqueada para evitar operar sobre otro módulo.")
+        st.warning("⚠️ Azure no devolvió Test Plans. Pulsa “Actualizar Test Plans y Suites disponibles” para volver a consultar.")
         return
+    st.caption(f"Test Plans disponibles en Azure: {len(target_plans)}. Se muestran todos; la publicación de CP continúa restringida al alcance autorizado.")
     plan_labels = [f"{p.get('id')} — {_ui(p.get('name'), 'Sin nombre')}" for p in target_plans]
     selected_target_plan_label = st.selectbox("Test Plan destino", plan_labels, key="azure_publish_target_plan")
     target_plan = target_plans[plan_labels.index(selected_target_plan_label)]
     target_plan_id = str(target_plan.get("id"))
+    selected_plan_scope = " ".join(
+        safe_text(target_plan.get(key))
+        for key in ("name", "area_path", "iteration")
+    ).casefold()
+    if not any(term in selected_plan_scope for term in ("colectiv", "autos")):
+        st.warning("⚠️ Este Test Plan se muestra en la lista, pero la publicación está bloqueada porque no se identificó dentro del alcance Colectivos Autos.")
+        return
     # Ofrecer propietarios identificados en los Test Plans consultados para elegir
     # explícitamente el usuario de asignación, sin asumir que debe ser el dueño del plan.
     available_owners = {}
