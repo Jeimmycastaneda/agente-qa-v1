@@ -373,7 +373,11 @@ def render_azure_publish(*, result, selected_config, list_test_suites, list_test
     target_plan = target_plans[plan_labels.index(selected_target_plan_label)]
     target_plan_id = str(target_plan.get("id"))
     plan_owner = target_plan.get("owner") if isinstance(target_plan.get("owner"), dict) else {}
-    plan_owner_name = _ui(plan_owner.get("display_name"), plan_owner.get("unique_name"), "No identificado")
+    plan_owner_name = (
+        _ui(plan_owner.get("display_name"))
+        or _ui(plan_owner.get("unique_name"))
+        or "No identificado"
+    )
     st.info(f"👤 Los nuevos CP se asignarán al usuario propietario del Test Plan: **{plan_owner_name}**")
     if st.session_state.get("azure_target_plan_id") != target_plan_id:
         st.session_state.azure_target_plan_id = target_plan_id; st.session_state.azure_target_suite_id = None
