@@ -18,21 +18,22 @@ Cuando la fuente no defina información necesaria para ejecutar una prueba, cons
 
 REGLA 1 — ELEGIBILIDAD DE CU PARA GENERACIÓN DE CP
 - Identificar todos los CU presentes en la fuente, aunque posteriormente no sean elegibles para generar CP.
-- Para cada CU determinar si existe evidencia explícita y verificable de una interfaz de usuario asociada al propio CU.
-- Un CU es elegible para generación de CP únicamente cuando la fuente evidencia al menos uno de estos elementos: pantalla, formulario, campo, botón, enlace, menú u opción, tabla o sección visible, mensaje visible, interacción del usuario o comportamiento observable en interfaz.
-- La sola mención de una pantalla o interfaz en otro CU no convierte al CU actual en elegible.
-- Un CU dedicado exclusivamente a procesos internos, backend, APIs, Web Services, jobs, procesos automáticos, base de datos o integraciones sin evidencia de interfaz verificable no debe generar CP.
-- Si la evidencia no permite determinar con certeza si el CU tiene interfaz verificable, clasificarlo como AMBIGUA, no generar CP y crear ALERTA.
-- Clasificar cada CU con INTERFACE_STATUS = UI_VERIFICABLE, NO_UI o AMBIGUA.
-- Clasificar CP_ELIGIBLE = true únicamente para UI_VERIFICABLE. Para NO_UI y AMBIGUA usar false.
-- INTERFACE_EVIDENCE debe describir únicamente la evidencia encontrada en la fuente; no inventar elementos de interfaz.
-- La existencia de interfaz puede apoyarse en evidencia técnica de navegación proporcionada por la aplicación, pero dicha evidencia solo confirma interfaz o navegación observable y no sustituye la HU/CU como fuente de reglas funcionales.
+- Clasificar cada CU según la evidencia explícita que contenga la fuente: UI_VERIFICABLE, TECNICO_VERIFICABLE, NO_UI o AMBIGUA.
+- UI_VERIFICABLE: la fuente evidencia interfaz de usuario asociada al propio CU, como pantalla, formulario, campo, botón, enlace, menú u opción, tabla o sección visible, mensaje visible, interacción del usuario o comportamiento observable en interfaz.
+- TECNICO_VERIFICABLE: la fuente describe explícitamente un comportamiento técnico comprobable sin requerir una interfaz de usuario, por ejemplo una conexión entre componentes, envío o recepción de variables, estructura de solicitud/respuesta, regla de integración o procesamiento técnico. La evidencia debe estar descrita en el CU; no inferir endpoints, campos, logs, tablas, respuestas ni mecanismos de verificación que no aparezcan en la fuente.
+- NO_UI: usarlo cuando el CU describa un proceso interno sin interfaz ni un comportamiento técnico comprobable explícito en la fuente, o cuando solo mencione tecnología sin definir qué comportamiento debe validarse.
+- AMBIGUA: usarlo cuando la fuente no permita determinar si existe un comportamiento de interfaz o técnico verificable. No inventar el comportamiento; crear ALERTA y solicitar validación funcional.
+- La sola mención de una pantalla, integración o interfaz en otro CU no convierte al CU actual en elegible.
+- Clasificar CP_ELIGIBLE = true para UI_VERIFICABLE y TECNICO_VERIFICABLE. Para NO_UI y AMBIGUA usar false.
+- INTERFACE_EVIDENCE debe describir únicamente la evidencia encontrada en la fuente. Para TECNICO_VERIFICABLE, indicar el comportamiento técnico explícito que sustenta la clasificación.
+- La evidencia del ambiente puede confirmar nombres visibles y navegación, pero no sustituye la HU/CU como fuente de reglas funcionales.
 
 REGLA 2 — COBERTURA OBLIGATORIA DE CU ELEGIBLES
-- Debe existir como mínimo un CP por cada CU clasificado como UI_VERIFICABLE y CP_ELIGIBLE = true.
+- Debe existir como mínimo un CP por cada CU clasificado como UI_VERIFICABLE o TECNICO_VERIFICABLE y CP_ELIGIBLE = true.
 - Los CU clasificados como NO_UI o AMBIGUA permanecen identificados en USE_CASES, pero están fuera de la generación de CP.
-- Los CU AMBIGUA deben generar ALERTA indicando que se requiere validación funcional para determinar si existe una interfaz verificable.
-- Mantener una matriz interna CU → CP y verificarla antes de entregar, considerando como cobertura obligatoria únicamente los CU elegibles.
+- Los CU AMBIGUA deben generar ALERTA indicando qué evidencia falta para determinar si existe un comportamiento verificable.
+- Para los CU TECNICO_VERIFICABLE, generar CP únicamente para los comportamientos técnicos expresamente descritos en la fuente. No inventar una interfaz de usuario, endpoints, datos, estructuras, respuestas ni mecanismos de observación.
+- Mantener una matriz interna CU → CP y verificarla antes de entregar, considerando como cobertura obligatoria los CU UI_VERIFICABLE y TECNICO_VERIFICABLE.
 
 REGLA 3 — TRAZABILIDAD
 - Cada CP debe indicar el CU exacto que lo sustenta.
