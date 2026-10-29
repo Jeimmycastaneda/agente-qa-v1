@@ -377,13 +377,7 @@ def render_azure_publish(*, result, selected_config, list_test_plans, list_test_
     selected_target_plan_label = st.selectbox("Test Plan destino", plan_labels, key="azure_publish_target_plan")
     target_plan = target_plans[plan_labels.index(selected_target_plan_label)]
     target_plan_id = str(target_plan.get("id"))
-    selected_plan_scope = " ".join(
-        safe_text(target_plan.get(key))
-        for key in ("name", "area_path", "iteration")
-    ).casefold()
-    if not any(term in selected_plan_scope for term in ("colectiv", "autos")):
-        st.warning("⚠️ Este Test Plan se muestra en la lista, pero la publicación está bloqueada porque no se identificó dentro del alcance Colectivos Autos.")
-        return
+
     # Ofrecer propietarios identificados en los Test Plans consultados para elegir
     # explícitamente el usuario de asignación, sin asumir que debe ser el dueño del plan.
     available_owners = {}
