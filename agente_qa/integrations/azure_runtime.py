@@ -518,7 +518,8 @@ def list_reference_suites_current_year(year: int):
             ]
             parsed_dates = [parse_date(value) for value in date_values]
             valid_dates = [value for value in parsed_dates if value is not None]
-            if not valid_dates or max(valid_dates) < cutoff or max(valid_dates) > now + timedelta(days=1):
+            eligible_dates = [value for value in valid_dates if value <= now + timedelta(days=1)]
+            if not eligible_dates or max(eligible_dates) < cutoff:
                 continue
 
             suites.append({
@@ -527,7 +528,7 @@ def list_reference_suites_current_year(year: int):
                 "plan_name": safe_text(plan.get("name"), "Test Plan sin nombre"),
                 "plan_start_date": safe_text(plan.get("startDate")),
                 "plan_end_date": safe_text(plan.get("endDate")),
-                "reference_date": max(valid_dates).isoformat(),
+                "reference_date": max(eligible_dates).isoformat(),
                 "scope": "Miniflotas" if is_miniflotas else "Colectivos Autos",
             })
 
