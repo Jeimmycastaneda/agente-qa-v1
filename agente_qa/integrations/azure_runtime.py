@@ -434,18 +434,33 @@ def list_test_suites(plan_id):
 
 
 def list_reference_suites_current_year(year: int):
-    """Lista Suites de referencia del año indicado dentro del alcance Colectivos Autos.
+    """Lista Suites de referencia de Colectivos Autos y Miniflotas actualizadas en los últimos seis meses."""
+    from datetime import datetime, timedelta, timezone
 
-    Recorre todas las páginas de Test Plans de Azure DevOps para no omitir planes
-    recientes cuando el proyecto supera el límite inicial de 100. El año se
-    determina por las fechas del Test Plan y, como respaldo, por su nombre/iteración.
-    Las Suites se filtran por evidencia textual de Colectivos Autos.
-    """
     cfg = _az_config()
     _az_validate(cfg)
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=183)
 
-    # Azure puede paginar el catálogo de Test Plans. Seguir el token de continuación
-    # evita dejar por fuera planes recientes que no estén en la primera página.
+    def parse_date(value):
+        raw = safe_text(value).strip()
+        if not raw:
+            return None
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        except (TypeError, ValueError):
+            return None
+
+    def text_plan(plan):
+        return " ".join(
+            safe_text(plan.get(key))
+            for key in ("name", "areaPath", "iteration", "description")
+        ).casefold()
+
+    # Recorrer todas las páginas para no omitir planes fuera de la primera página.
     plans = []
     continuation_token = None
     seen_tokens = set()
@@ -470,27 +485,8 @@ def list_reference_suites_current_year(year: int):
         seen_tokens.add(str(next_token))
         continuation_token = str(next_token)
 
-    def text_plan(plan):
-        return " ".join(
-            safe_text(plan.get(key))
-            for key in ("name", "areaPath", "iteration", "description")
-        ).casefold()
-
-    def is_year(plan):
-        values = [
-            safe_text(plan.get("startDate")),
-            safe_text(plan.get("endDate")),
-            safe_text(plan.get("updatedDate")),
-            text_plan(plan),
-        ]
-        return any(str(year) in value for value in values)
-
-    current_plans = [
-        p for p in plans
-        if is_year(p) or "miniflotas" in text_plan(p) or "its152253" in text_plan(p)
-    ]
     suites = []
-    for plan in current_plans:
+    for plan in plans:
         plan_id = plan.get("id")
         if not plan_id:
             continue
@@ -499,18 +495,39 @@ def list_reference_suites_current_year(year: int):
             plan_suites = list_test_suites(plan_id)
         except Exception:
             continue
+
         for suite in plan_suites:
             suite_text = safe_text(suite.get("name")).casefold()
-            is_miniflotas = "miniflotas" in plan_text or "its152253" in plan_text or "miniflotas" in suite_text or "its152253" in suite_text
-            is_colectivos_autos = "colectiv" in suite_text or "colectiv" in plan_text or "autos" in suite_text
+            is_miniflotas = (
+                "miniflotas" in plan_text or "its152253" in plan_text
+                or "miniflotas" in suite_text or "its152253" in suite_text
+            )
+            is_colectivos_autos = (
+                "colectiv" in suite_text or "colectiv" in plan_text
+                or "autos" in suite_text
+            )
             if not (is_colectivos_autos or is_miniflotas):
                 continue
+
+            # Priorizar fechas propias de la Suite; usar fechas del Test Plan como respaldo.
+            date_values = [
+                suite.get("lastUpdatedDate"), suite.get("updatedDate"),
+                suite.get("createdDate"), suite.get("lastModifiedDate"),
+                plan.get("updatedDate"), plan.get("startDate"),
+                plan.get("endDate"), plan.get("createdDate"),
+            ]
+            parsed_dates = [parse_date(value) for value in date_values]
+            valid_dates = [value for value in parsed_dates if value is not None]
+            if not valid_dates or max(valid_dates) < cutoff or max(valid_dates) > now + timedelta(days=1):
+                continue
+
             suites.append({
                 **suite,
                 "plan_id": plan_id,
                 "plan_name": safe_text(plan.get("name"), "Test Plan sin nombre"),
                 "plan_start_date": safe_text(plan.get("startDate")),
                 "plan_end_date": safe_text(plan.get("endDate")),
+                "reference_date": max(valid_dates).isoformat(),
                 "scope": "Miniflotas" if is_miniflotas else "Colectivos Autos",
             })
 
@@ -522,21 +539,32 @@ def list_reference_suites_current_year(year: int):
             continue
         seen.add(key)
         unique.append(suite)
-    unique.sort(key=lambda x: (safe_text(x.get("plan_start_date")), safe_text(x.get("plan_name")), safe_text(x.get("name"))), reverse=True)
+    unique.sort(
+        key=lambda x: (
+            safe_text(x.get("reference_date")),
+            safe_text(x.get("plan_name")),
+            safe_text(x.get("name")),
+        ),
+        reverse=True,
+    )
     return {
         "ok": True,
         "year": year,
         "plans": [
             {
-                "id": p.get("id"),
-                "name": safe_text(p.get("name"), "Test Plan sin nombre"),
-                "start_date": safe_text(p.get("startDate")),
-                "end_date": safe_text(p.get("endDate")),
+                "id": plan.get("id"),
+                "name": safe_text(plan.get("name"), "Test Plan sin nombre"),
+                "start_date": safe_text(plan.get("startDate")),
+                "end_date": safe_text(plan.get("endDate")),
             }
-            for p in current_plans
+            for plan in plans
         ],
         "suites": unique,
-        "message": f"Consulta de solo lectura: {len(unique)} Suite(s) elegibles del año {year} dentro del alcance Colectivos Autos. Se revisaron {len(plans)} Test Plan(s) en todas las páginas de Azure."
+        "message": (
+            f"Consulta de solo lectura: {len(unique)} Suite(s) de Colectivos Autos/Miniflotas "
+            "con fecha dentro de los últimos seis meses. "
+            f"Se revisaron {len(plans)} Test Plan(s) en todas las páginas de Azure."
+        ),
     }
 
 def _normalize_case_rows(payload):
