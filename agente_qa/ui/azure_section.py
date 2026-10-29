@@ -156,12 +156,12 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
     max_retries = st.number_input("Máximo de reintentos", min_value=0, max_value=5, value=2)
     wait_time = st.number_input("Espera inicial (segundos)", min_value=1, max_value=60, value=10)
     st.divider(); st.subheader("📚 Referencias de navegación para generar Steps")
-    st.caption("Solo lectura. Se consultan todas las Suites elegibles del año actual dentro del alcance Colectivos Autos, sin importar quién las creó. Si el ambiente no está disponible, estas Suites serán la base para reconstruir rutas y pasos descriptivos.")
+    st.caption("Solo lectura. Se consultan Suites de referencia de Colectivos Autos del año actual y Suites de Miniflotas identificadas explícitamente, sin importar quién las creó. Si el ambiente no está disponible, sirven como referencia de navegación y estructura.")
 
     if st.button("📚 Buscar Suites de referencia del año actual", key="azure_reference_current_year"):
         try:
             from datetime import datetime
-            with st.spinner("Consultando Suites del año actual dentro de Colectivos Autos..."):
+            with st.spinner("Consultando Suites de referencia de Colectivos Autos y Miniflotas..."):
                 catalog_result = list_reference_suites_current_year(datetime.now().year)
             st.session_state.azure_reference_suites_catalog = catalog_result.get("suites", [])
             st.session_state.azure_reference_selected_suites = []
@@ -170,7 +170,7 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             if catalog_result.get("suites"):
                 st.success(catalog_result.get("message", "Suites encontradas."))
             else:
-                st.warning("⚠️ No se encontraron Suites elegibles del año actual dentro de Colectivos Autos.")
+                st.warning("⚠️ No se encontraron Suites elegibles de Colectivos Autos del año actual ni Suites identificadas como Miniflotas.")
         except Exception as exc:
             st.error(f"❌ No se pudieron consultar las Suites de referencia: {exc}")
 
@@ -181,8 +181,8 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
             f"(Plan {s.get('plan_id')} / Suite {s.get('id')})"
             for s in reference_catalog
         ]
-        # Se incluyen todas las Suites elegibles del catálogo, sin filtrar por creador.
-        # El alcance sigue limitado a Colectivos Autos y al año seleccionado.
+        # Se incluyen las Suites elegibles del catálogo sin filtrar por creador.
+        # El catálogo admite Colectivos Autos del año seleccionado y Miniflotas identificada por nombre.
         selected_suites = reference_catalog
         st.session_state.azure_reference_selected_suites = selected_suites
         st.info(
@@ -235,16 +235,16 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
         except Exception as exc:
             st.error(f"❌ Error inesperado al probar Azure DevOps: {exc}")
     st.markdown("### 📋 Test Plans")
-    st.caption("Consulta de solo lectura. Solo se muestran los 10 Test Plans más recientes.")
-    if st.button("📋 Consultar 10 Test Plans", key="azure_list_test_plans"):
+    st.caption("Consulta de solo lectura. Se consultan todos los Test Plans disponibles para que también aparezcan planes antiguos, como ITS152253 Componente Miniflotas.")
+    if st.button("📋 Consultar todos los Test Plans", key="azure_list_test_plans"):
         try:
-            with st.spinner("Consultando los 10 Test Plans más recientes..."):
-                plans_result = list_test_plans(limit=10)
+            with st.spinner("Consultando todos los Test Plans disponibles..."):
+                plans_result = list_test_plans(limit=None)
             st.session_state.azure_reference_plans = plans_result.get("plans", [])
             for key in ("azure_reference_plan_id", "azure_reference_suite_id", "azure_reference_case_id", "azure_reference_detail", "azure_reference_details", "azure_reference_analysis", "azure_reference_preview"):
                 st.session_state[key] = None
             st.session_state.azure_reference_case_ids = []; st.session_state.azure_reference_suites = []; st.session_state.azure_reference_cases = []
-            st.success(f"✅ Consulta correcta: {len(st.session_state.azure_reference_plans)} Test Plan(s) más recientes.")
+            st.success(f"✅ Consulta correcta: {len(st.session_state.azure_reference_plans)} Test Plan(s) disponibles.")
             st.info(plans_result.get("message", "Consulta completada."))
         except Exception as exc:
             st.error(f"❌ No se pudieron consultar los Test Plans: {exc}")
@@ -255,7 +255,7 @@ def render_azure_sidebar(*, fallback_models, excel_configs, test_connection, azu
                 safe_text(plan.get(key))
                 for key in ("name", "area_path", "iteration")
             ).casefold()
-            for term in ("colectiv", "autos")
+            for term in ("colectiv", "autos", "miniflotas", "its152253")
         )
     ]
     if plans:
