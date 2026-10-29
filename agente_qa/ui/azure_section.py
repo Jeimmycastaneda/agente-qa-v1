@@ -360,6 +360,7 @@ def render_azure_publish(*, result, selected_config, list_test_plans, list_test_
             st.session_state.azure_target_plan_id = None
             st.session_state.azure_target_suite_id = None
             st.session_state.azure_target_suites = []
+            st.session_state.pop("azure_publish_target_plan", None)
             st.success(f"Se actualizaron {len(st.session_state.azure_publish_target_plans)} Test Plan(s) desde Azure.")
         except Exception as exc:
             st.error(f"❌ No se pudieron actualizar los Test Plans destino: {exc}")
@@ -400,6 +401,7 @@ def render_azure_publish(*, result, selected_config, list_test_plans, list_test_
             st.session_state.azure_target_suites = []
             st.error(f"❌ No se pudieron consultar las Suites del destino: {exc}")
     target_suites = st.session_state.get("azure_target_suites", []) or []
+    target_suites.sort(key=lambda suite: int(suite.get("id") or 0), reverse=True)
     if not target_suites: st.warning("⚠️ El Test Plan seleccionado no tiene Suites consultables."); return
     suite_labels = [f"{s.get('id')} — {_ui(s.get('name'), 'Suite sin nombre')}" for s in target_suites]; target_suite = target_suites[suite_labels.index(st.selectbox("Suite destino", suite_labels, key="azure_publish_target_suite"))]; st.session_state.azure_target_suite_id = str(target_suite.get("id"))
     st.markdown("### Datos obligatorios del proyecto para crear el Test Case")
