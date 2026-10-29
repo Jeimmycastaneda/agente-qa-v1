@@ -429,18 +429,17 @@ def list_test_suites(plan_id):
     for s in payload.get("value") or []:
         plan = s.get("plan") if isinstance(s.get("plan"), dict) else {}
         parent = s.get("parentSuite") if isinstance(s.get("parentSuite"), dict) else {}
-        rows.append({"id": s.get("id"), "name": _ui_text(s.get("name"), "Suite sin nombre"), "suite_type": s.get("suiteType", ""), "plan_id": plan.get("id", plan_id), "parent_suite": parent.get("id")})
+        rows.append({"id": s.get("id"), "name": _ui_text(s.get("name"), "Suite sin nombre"), "suite_type": s.get("suiteType", ""), "plan_id": plan.get("id", plan_id), "parent_suite": parent.get("id"), "created_date": s.get("createdDate", ""), "last_updated_date": s.get("lastUpdatedDate", s.get("lastModifiedDate", s.get("updatedDate", "")))})
     return rows
 
 
-def list_reference_suites_current_year(year: int):
-    """Lista Suites de referencia de Colectivos Autos y Miniflotas de los últimos 30 días."""
+def list_reference_suites_current_year(year: int, owner_unique_name: str | None = None, limit: int = 10):
+    """Lista hasta las últimas Suites de Colectivos Autos/Miniflotas de planes del propietario seleccionado."""
     from datetime import datetime, timedelta, timezone
 
     cfg = _az_config()
     _az_validate(cfg)
     now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=30)
 
     def parse_date(value):
         raw = safe_text(value).strip()
@@ -460,33 +459,38 @@ def list_reference_suites_current_year(year: int):
             for key in ("name", "areaPath", "iteration", "description")
         ).casefold()
 
-    # Recorrer todas las páginas para no omitir planes fuera de la primera página.
+    # Recorrer todas las páginas de Test Plans, pero solo consultar Suites
+    # de planes cuyo propietario coincide con el selector de asignación.
     plans = []
     continuation_token = None
     seen_tokens = set()
     while True:
-        params = {
-            "api-version": "7.1",
-            "includePlanDetails": "true",
-            "$top": 100,
-        }
+        params = {"api-version": "7.1", "includePlanDetails": "true", "$top": 100}
         if continuation_token:
             params["continuationToken"] = continuation_token
         payload, headers = _az_get_json(
             _az_testplan_url(cfg, "plans") + "?" + urlencode(params), cfg["pat"]
         )
         plans.extend(payload.get("value") or [])
-        next_token = (
-            payload.get("continuationToken")
-            or (headers.get("x-ms-continuationtoken") if headers else None)
+        next_token = payload.get("continuationToken") or (
+            headers.get("x-ms-continuationtoken") if headers else None
         )
         if not next_token or str(next_token) in seen_tokens:
             break
         seen_tokens.add(str(next_token))
         continuation_token = str(next_token)
 
-    suites = []
+    owner_key = safe_text(owner_unique_name).strip().casefold()
+    owner_plans = []
     for plan in plans:
+        owner = plan.get("owner") if isinstance(plan.get("owner"), dict) else {}
+        plan_owner = safe_text(owner.get("uniqueName") or owner.get("unique_name")).strip().casefold()
+        if owner_key and plan_owner != owner_key:
+            continue
+        owner_plans.append(plan)
+
+    suites = []
+    for plan in owner_plans:
         plan_id = plan.get("id")
         if not plan_id:
             continue
@@ -495,7 +499,6 @@ def list_reference_suites_current_year(year: int):
             plan_suites = list_test_suites(plan_id)
         except Exception:
             continue
-
         for suite in plan_suites:
             suite_text = safe_text(suite.get("name")).casefold()
             is_miniflotas = (
@@ -509,27 +512,22 @@ def list_reference_suites_current_year(year: int):
             if not (is_colectivos_autos or is_miniflotas):
                 continue
 
-            # Priorizar fechas propias de la Suite; usar fechas del Test Plan como respaldo.
-            date_values = [
-                suite.get("lastUpdatedDate"), suite.get("updatedDate"),
-                suite.get("createdDate"), suite.get("lastModifiedDate"),
-                plan.get("updatedDate"), plan.get("startDate"),
-                plan.get("endDate"), plan.get("createdDate"),
-            ]
-            parsed_dates = [parse_date(value) for value in date_values]
-            valid_dates = [value for value in parsed_dates if value is not None]
-            eligible_dates = [value for value in valid_dates if value <= now + timedelta(days=1)]
-            if not eligible_dates or max(eligible_dates) < cutoff:
-                continue
-
+            created = parse_date(suite.get("created_date") or suite.get("createdDate"))
+            updated = parse_date(suite.get("last_updated_date") or suite.get("lastUpdatedDate"))
+            plan_date = parse_date(plan.get("updatedDate") or plan.get("startDate") or plan.get("createdDate"))
+            reference_date = created or updated or plan_date
+            # Si Azure no devuelve fechas para la Suite, su ID se usa como
+            # aproximación al orden de creación; no se inventa una fecha.
             suites.append({
                 **suite,
                 "plan_id": plan_id,
                 "plan_name": safe_text(plan.get("name"), "Test Plan sin nombre"),
                 "plan_start_date": safe_text(plan.get("startDate")),
                 "plan_end_date": safe_text(plan.get("endDate")),
-                "reference_date": max(eligible_dates).isoformat(),
+                "reference_date": reference_date.isoformat() if reference_date else "",
+                "sort_id": int(suite.get("id") or 0) if str(suite.get("id") or "").isdigit() else 0,
                 "scope": "Miniflotas" if is_miniflotas else "Colectivos Autos",
+                "owner_unique_name": safe_text((plan.get("owner") or {}).get("uniqueName") if isinstance(plan.get("owner"), dict) else ""),
             })
 
     unique = []
@@ -541,32 +539,23 @@ def list_reference_suites_current_year(year: int):
         seen.add(key)
         unique.append(suite)
     unique.sort(
-        key=lambda x: (
-            safe_text(x.get("reference_date")),
-            safe_text(x.get("plan_name")),
-            safe_text(x.get("name")),
-        ),
+        key=lambda x: (bool(x.get("reference_date")), safe_text(x.get("reference_date")), x.get("sort_id", 0)),
         reverse=True,
     )
+    limited = unique[:max(1, int(limit))]
+    owner_label = safe_text(owner_unique_name, "cualquier propietario")
     return {
         "ok": True,
         "year": year,
-        "plans": [
-            {
-                "id": plan.get("id"),
-                "name": safe_text(plan.get("name"), "Test Plan sin nombre"),
-                "start_date": safe_text(plan.get("startDate")),
-                "end_date": safe_text(plan.get("endDate")),
-            }
-            for plan in plans
-        ],
-        "suites": unique,
+        "plans": [{"id": p.get("id"), "name": safe_text(p.get("name"), "Test Plan sin nombre")} for p in owner_plans],
+        "suites": limited,
         "message": (
-            f"Consulta de solo lectura: {len(unique)} Suite(s) de Colectivos Autos/Miniflotas "
-            "con fecha dentro de los últimos 30 días. "
-            f"Se revisaron {len(plans)} Test Plan(s) en todas las páginas de Azure."
+            f"Consulta de solo lectura: se muestran {len(limited)} de las últimas Suites elegibles "
+            f"asociadas a Test Plans cuyo propietario es {owner_label}. "
+            "Se prioriza la fecha de creación de la Suite; si Azure no la entrega, se usa la fecha disponible y luego el ID."
         ),
     }
+
 
 def _normalize_case_rows(payload):
     rows = []
