@@ -485,7 +485,10 @@ def list_reference_suites_current_year(year: int):
         ]
         return any(str(year) in value for value in values)
 
-    current_plans = [p for p in plans if is_year(p)]
+    current_plans = [
+        p for p in plans
+        if is_year(p) or "miniflotas" in text_plan(p) or "its152253" in text_plan(p)
+    ]
     suites = []
     for plan in current_plans:
         plan_id = plan.get("id")
@@ -498,7 +501,9 @@ def list_reference_suites_current_year(year: int):
             continue
         for suite in plan_suites:
             suite_text = safe_text(suite.get("name")).casefold()
-            if "colectiv" not in suite_text and "colectiv" not in plan_text and "autos" not in suite_text:
+            is_miniflotas = "miniflotas" in plan_text or "its152253" in plan_text or "miniflotas" in suite_text or "its152253" in suite_text
+            is_colectivos_autos = "colectiv" in suite_text or "colectiv" in plan_text or "autos" in suite_text
+            if not (is_colectivos_autos or is_miniflotas):
                 continue
             suites.append({
                 **suite,
@@ -506,7 +511,7 @@ def list_reference_suites_current_year(year: int):
                 "plan_name": safe_text(plan.get("name"), "Test Plan sin nombre"),
                 "plan_start_date": safe_text(plan.get("startDate")),
                 "plan_end_date": safe_text(plan.get("endDate")),
-                "scope": "Colectivos Autos",
+                "scope": "Miniflotas" if is_miniflotas else "Colectivos Autos",
             })
 
     unique = []
